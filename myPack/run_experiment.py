@@ -285,11 +285,11 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             model_object.fit(train_x=train_gen, train_y=None, val_x=val_gen, val_y=None, save_raw=True,
                              plot_test_acc=True)
 
-            model_object.model.save("keras_model")
+            # model_object.model.save("keras_model")
 
-            temp_model = ModelWithTemperature(model=model_object.model, batch_size=hyper_dict['batch_size'],
-                                              save_path=general_dict['fig_path'] + "model_" + str(i))
-            temp_model.set_temperature(valid_loader=val_gen)
+            # temp_model = ModelWithTemperature(model=model_object.model, batch_size=hyper_dict['batch_size'],
+            #                                   save_path=general_dict['fig_path'] + "model_" + str(i))
+            # temp_model.set_temperature(valid_loader=val_gen)
 
             print("[INFO] Trying to predict test set")
             # train_gen = None
@@ -309,6 +309,7 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             evaluate_majority(model_object=model_object, test_dict=test_dict,
                               write_file=general_dict['write_file_path'])
 
+            keras.backend.clear_session()
             _ = gc.collect()
             write_to_file(general_dict['write_file_path'], f"************* Ending Model Run: {i} *************\n\n",
                           also_print=True)
@@ -350,8 +351,6 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                 model_object.fit(train_x=train_gen, train_y=None, val_x=val_gen, val_y=None, save_raw=True,
                                  plot_test_acc=True)
 
-                train_gen = None
-                val_gen = None
                 test_x, test_y, test_dict = load_time_series_dataset(participant_list=test_id,
                                                                      data_dict=data_dict,
                                                                      datapoints_per_window=time_dict[
@@ -511,7 +510,6 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
         temp4 = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
                                      save_path=general_dict['fig_path'], opt="rms")
         temp4.set_temperature(valid_loader=val_gen)
-
 
     else:
         print(f"Unrecognized experiment type: {general_dict['experiment_type']}")
