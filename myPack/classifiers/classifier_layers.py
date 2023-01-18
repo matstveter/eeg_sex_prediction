@@ -254,7 +254,6 @@ def flatten_layer(input_to_flatten: tuple, use_2d, use_flatten: bool = True):
             outp = Flatten()(input_to_flatten)
 
         else:
-            print(input_to_flatten.shape)
             outp = GlobalAveragePooling1D(data_format="channels_first")(input_to_flatten)
     return outp
 
@@ -324,73 +323,3 @@ def batch_layer(input_to_batch):
         Output from batchnorm
     """
     return BatchNormalization()(input_to_batch)
-
-
-def build_dynamic_model(x, layers: list, conv_2d, kernel_init="glorot_uniform", name=None,
-                        data_format="channels_first", monte_carlo=False):
-    if 'f' in layers and 'g' in layers:
-        raise ValueError("[ERROR] Don't use both flatten and globalaveragepooling!")
-
-    for i in range(len(layers)):
-        if not isinstance(layers[i], tuple):
-            layers[i] = tuple(layers[i])
-    layers = tuple(layers)
-
-    for lay in layers:
-        type_of_layer = lay[0]
-        if type_of_layer == 'c':
-            if conv_2d:
-                # Convolutional Layers
-                x = Conv2D(filters=lay[2], kernel_size=lay[1], padding="same", activation="relu",
-                           kernel_initializer=kernel_init, name=name)(x)
-            else:
-                if isinstance(lay[1], tuple):
-                    kernel_size = max(lay[1])
-                else:
-                    kernel_size = lay[1]
-                x = Conv1D(filters=lay[2], kernel_size=kernel_size, padding="same", activation="relu",
-                           kernel_initializer=kernel_init, name=name,
-                           data_format=data_format)(x)
-        elif type_of_layer == "d":
-            # Dense Layer
-            x = Dense(lay[1])(x)
-            x = BatchNormalization()(x)
-            x = keras.layers.ReLU()(x)
-            x = Dropout(rate=0.5)(x)
-        elif type_of_layer == 'm':
-            # MaxPooling
-            if len(lay) == 3:
-                x = pooling_layers(input_to_pool=x, pool_size=lay[1], stride=lay[2], use_2d=conv_2d)
-            else:
-                x = pooling_layers(input_to_pool=x, pool_size=lay[1], stride=1, use_2d=conv_2d)
-        elif type_of_layer == 'a':
-            # AveragePooling
-            if len(lay) == 3:
-                x = pooling_layers(input_to_pool=x, pool_size=lay[1], stride=lay[2], use_2d=conv_2d, max_pooling=False)
-            else:
-                x = pooling_layers(input_to_pool=x, pool_size=lay[1], stride=1, use_2d=conv_2d, max_pooling=False)
-        elif type_of_layer == 'f':
-            # Flatten
-            x = flatten_layer(input_to_flatten=x, use_2d=conv_2d, use_flatten=True)
-        elif type_of_layer == 'g':
-            # GlobalAveragePooling
-            x = flatten_layer(input_to_flatten=x, use_2d=conv_2d, use_flatten=False)
-        elif type_of_layer == 'x':
-            # Dropout
-            if len(lay) == 2:
-                x = dropout_layer(input_to_drop=x, rate=lay[1], monte_carlo=monte_carlo)
-            else:
-                x = dropout_layer(input_to_drop=x, rate=0.5, monte_carlo=monte_carlo)
-        elif type_of_layer == 'i':
-            # Inception Module
-            if len(lay) == 1:
-                kernels = None
-            else:
-                kernels = lay[1]
-            x = inception_module(input_to_inception=x, kernel_sizes=kernels)
-        elif type_of_layer == 'b':
-            # BatchNormalization
-            x = BatchNormalization()(x)
-        else:
-            raise ValueError(f"DynamicTimeClassifer: Unrecognizable value in layer list, got {type_of_layer}")
-    return x
