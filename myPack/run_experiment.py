@@ -4,9 +4,10 @@ import gc
 import tensorflow as tf
 import numpy as np
 
+from myPack.classifiers.eeg_models import DeepConvNet, EEGnet, EEGnet_SSVEP, ShallowNet
 from myPack.classifiers.inception_time import InceptionTime, InceptionTime2, InceptionTime3
 from myPack.classifiers.model_with_temperature import ModelWithTemperature
-from myPack.classifiers.time_classifiers import TimeClassifer
+from myPack.classifiers.time_classifiers import TimeClassifer, ExperimentalClassifier
 from myPack.data.data_generator import DataGenerator
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -36,6 +37,62 @@ def choose_model(model_name, model_dict: dict, general_dict: dict, name_of_model
                                      epochs=hyper_dict['epochs'],
                                      patience=hyper_dict['patience'],
                                      learning_rate=hyper_dict['lr'])
+    elif model_name == "deepconvnet":
+        if model_dict['input_shape'][-1] == 1:
+            model_object = DeepConvNet(input_shape=model_dict['input_shape'],
+                                       output_shape=1,
+                                       save_path=general_dict['model_path'],
+                                       fig_path=general_dict['fig_path'],
+                                       save_name=name_of_model,
+                                       logits=model_dict['model_with_logits'],
+                                       batch_size=hyper_dict['batch_size'],
+                                       epochs=hyper_dict['epochs'],
+                                       patience=hyper_dict['patience'],
+                                       learning_rate=hyper_dict['lr'])
+        else:
+            raise ValueError("DeepConvNet expectes 4 dimensional input, because of conv2d!")
+    elif model_name == "shallownet":
+        if model_dict['input_shape'][-1] == 1:
+            model_object = ShallowNet(input_shape=model_dict['input_shape'],
+                                      output_shape=1,
+                                      save_path=general_dict['model_path'],
+                                      fig_path=general_dict['fig_path'],
+                                      save_name=name_of_model,
+                                      logits=model_dict['model_with_logits'],
+                                      batch_size=hyper_dict['batch_size'],
+                                      epochs=hyper_dict['epochs'],
+                                      patience=hyper_dict['patience'],
+                                      learning_rate=hyper_dict['lr'])
+        else:
+            raise ValueError("ShallowNet expectes 4 dimensional input, because of conv2d!")
+    elif model_name == "eegnet":
+        if model_dict['input_shape'][-1] == 1:
+            model_object = EEGnet(input_shape=model_dict['input_shape'],
+                                  output_shape=1,
+                                  save_path=general_dict['model_path'],
+                                  fig_path=general_dict['fig_path'],
+                                  save_name=name_of_model,
+                                  logits=model_dict['model_with_logits'],
+                                  batch_size=hyper_dict['batch_size'],
+                                  epochs=hyper_dict['epochs'],
+                                  patience=hyper_dict['patience'],
+                                  learning_rate=hyper_dict['lr'])
+        else:
+            raise ValueError("EEGnet expectes 4 dimensional input, because of conv2d!")
+    elif model_name == "eegnet_ssvep":
+        if model_dict['input_shape'][-1] == 1:
+            model_object = EEGnet_SSVEP(input_shape=model_dict['input_shape'],
+                                        output_shape=1,
+                                        save_path=general_dict['model_path'],
+                                        fig_path=general_dict['fig_path'],
+                                        save_name=name_of_model,
+                                        logits=model_dict['model_with_logits'],
+                                        batch_size=hyper_dict['batch_size'],
+                                        epochs=hyper_dict['epochs'],
+                                        patience=hyper_dict['patience'],
+                                        learning_rate=hyper_dict['lr'])
+        else:
+            raise ValueError("EEGnet_SSVEP expectes 4 dimensional input, because of conv2d!")
     elif model_name == "inc":
         model_object = InceptionTime(input_shape=model_dict['input_shape'],
                                      output_shape=1,
@@ -73,6 +130,17 @@ def choose_model(model_name, model_dict: dict, general_dict: dict, name_of_model
                                       learning_rate=hyper_dict['lr'],
                                       depth=depth,
                                       kernel_sizes=kernels)
+    elif model_name == "exp":
+        model_object = ExperimentalClassifier(input_shape=model_dict['input_shape'],
+                                              output_shape=1,
+                                              save_path=general_dict['model_path'],
+                                              fig_path=general_dict['fig_path'],
+                                              save_name=name_of_model,
+                                              logits=model_dict['model_with_logits'],
+                                              batch_size=hyper_dict['batch_size'],
+                                              epochs=hyper_dict['epochs'],
+                                              patience=hyper_dict['patience'],
+                                              learning_rate=hyper_dict['lr'])
     else:
         raise ValueError("Unrecognizable model_name!")
 
@@ -477,7 +545,7 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                                                                     large_data=large_dataset,
                                                                                     conv2d=model_dict['use_conv2d'])
         model_dict['input_shape'] = model_shape
-        
+
         model = keras.models.load_model("/home/tvetern/Dropbox/phd/projects/gender_prediction/")
         temp_model = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
                                           save_path=general_dict['fig_path'] + "model_")

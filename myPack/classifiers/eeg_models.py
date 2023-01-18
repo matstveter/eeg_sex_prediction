@@ -2,10 +2,12 @@ import numpy as np
 from keras import Input
 from keras.constraints import max_norm
 from keras.layers import Activation, AveragePooling2D, BatchNormalization, Conv2D, Dense, DepthwiseConv2D, Dropout, \
-    Flatten, SeparableConv2D, SpatialDropout2D
+    Flatten, MaxPooling2D, SeparableConv2D, SpatialDropout2D
 from tensorflow import keras
 import tensorflow as tf
+import keras.backend as K
 
+from myPack.classifiers.classifier_layers import dense_layer
 from myPack.classifiers.super_classifier import SUPERClassifier
 
 
@@ -13,7 +15,7 @@ class EEGnet(SUPERClassifier):
     # NB Assumes sampling rate of 128
     def __init__(self, input_shape, output_shape, save_path, fig_path, save_name, logits, batch_size=32, epochs=300,
                  patience=50, verbose=False, learning_rate=0.001, dropout_rate=0.5, kern_length=64, F1=8, D=2, F2=16,
-                 norm_rate=0.25, dropout_type="Dropout"):
+                 norm_rate=0.25, dropout_type="Dropout", add_dense=False):
 
         self._dropout_rate = dropout_rate
         self._kernel_length = kern_length
@@ -22,6 +24,7 @@ class EEGnet(SUPERClassifier):
         self._d = D
         self._norm_rate = norm_rate
         self._dropout_type = dropout_type
+        self._add_dense = add_dense
 
         super().__init__(input_shape=input_shape, output_shape=output_shape, save_path=save_path, fig_path=fig_path,
                          save_name=save_name, logits=logits, batch_size=batch_size, epochs=epochs,
@@ -57,6 +60,11 @@ class EEGnet(SUPERClassifier):
 
         flatten = Flatten(name='flatten')(block2)
 
+        if self._add_dense:
+            flatten = dense_layer(flatten, neurons=(256, 32), apply_dropout=True, apply_batchnorm=True,
+                                  dropout_rate=0.5,
+                                  monte_carlo=monte_carlo)
+
         if self._logits:
             custom_loss = keras.losses.BinaryCrossentropy(from_logits=True)
             out = keras.layers.Dense(self._output_shape, kernel_constraint=max_norm(self._norm_rate))(flatten)
@@ -77,7 +85,7 @@ class EEGnet_SSVEP(SUPERClassifier):
     # NB Assumes sampling rate of 128
     def __init__(self, input_shape, output_shape, save_path, fig_path, save_name, logits, batch_size=32, epochs=300,
                  patience=50, verbose=False, learning_rate=0.001, dropout_rate=0.5, kern_length=64, F1=8, D=2, F2=16,
-                 norm_rate=0.25, dropout_type="Dropout"):
+                 norm_rate=0.25, dropout_type="Dropout", add_dense=False):
         self._dropout_rate = dropout_rate
         self._kernel_length = kern_length
         self._f1 = F1
@@ -85,6 +93,7 @@ class EEGnet_SSVEP(SUPERClassifier):
         self._d = D
         self._norm_rate = norm_rate
         self._dropout_type = dropout_type
+        self._add_dense = add_dense
 
         super().__init__(input_shape=input_shape, output_shape=output_shape, save_path=save_path, fig_path=fig_path,
                          save_name=save_name, logits=logits, batch_size=batch_size, epochs=epochs,
@@ -119,6 +128,11 @@ class EEGnet_SSVEP(SUPERClassifier):
 
         flatten = Flatten(name='flatten')(block2)
 
+        if self._add_dense:
+            flatten = dense_layer(flatten, neurons=(256, 32), apply_dropout=True, apply_batchnorm=True,
+                                  dropout_rate=0.5,
+                                  monte_carlo=monte_carlo)
+
         if self._logits:
             custom_loss = keras.losses.BinaryCrossentropy(from_logits=True)
             out = keras.layers.Dense(self._output_shape, kernel_constraint=max_norm(self._norm_rate))(flatten)
@@ -135,23 +149,114 @@ class EEGnet_SSVEP(SUPERClassifier):
         return model
 
 
-if __name__ == "__main__":
-    # a = EEGnet(input_shape=(129, 1000, 1), output_shape=1, logits=False, save_path="", fig_path="", save_name="")
-    # print(a.model.summary())
-    #
-    # x = np.zeros((32, 129, 1000, 1))
-    # y = np.zeros(32)
-    # x1 = np.zeros((32, 129, 1000, 1))
-    # y1 = np.zeros(32)
-    #
-    # a.fit(train_x=x, train_y=y, val_x=x1, val_y=y1)
+class DeepConvNet(SUPERClassifier):
+    def __init__(self, input_shape, output_shape, save_path, fig_path, save_name, logits, batch_size=32, epochs=300,
+                 patience=50, verbose=False, learning_rate=0.001, dropout_rate=0.5, add_dense=False):
+        self._dropout_rate = dropout_rate
+        self._add_dense = add_dense
 
-    a = EEGnet_SSVEP(input_shape=(129, 1000, 1), output_shape=1, logits=False, save_path="", fig_path="", save_name="")
-    print(a.model.summary())
+        super().__init__(input_shape=input_shape, output_shape=output_shape, save_path=save_path, fig_path=fig_path,
+                         save_name=save_name, logits=logits, batch_size=batch_size, epochs=epochs,
+                         patience=patience, verbose=verbose, learning_rate=learning_rate)
 
-    x = np.zeros((32, 129, 1000, 1))
-    y = np.zeros(32)
-    x1 = np.zeros((32, 129, 1000, 1))
-    y1 = np.zeros(32)
+    def _build_model(self, monte_carlo=False):
+        input1 = Input(self._input_shape)
+        block1 = Conv2D(25, (1, 10), kernel_constraint=max_norm(2., axis=(0, 1, 2)))(input1)
+        block1 = Conv2D(25, (self._input_shape[0], 1), kernel_constraint=max_norm(2., axis=(0, 1, 2)))(block1)
+        block1 = BatchNormalization(epsilon=1e-05, momentum=0.9)(block1)
+        block1 = Activation('elu')(block1)
+        block1 = MaxPooling2D(pool_size=(1, 3), strides=(1, 3))(block1)
+        block1 = Dropout(self._dropout_rate)(block1)
 
-    a.fit(train_x=x, train_y=y, val_x=x1, val_y=y1)
+        block2 = Conv2D(50, (1, 10),
+                        kernel_constraint=max_norm(2., axis=(0, 1, 2)))(block1)
+        block2 = BatchNormalization(epsilon=1e-05, momentum=0.9)(block2)
+        block2 = Activation('elu')(block2)
+        block2 = MaxPooling2D(pool_size=(1, 3), strides=(1, 3))(block2)
+        block2 = Dropout(self._dropout_rate)(block2)
+
+        block3 = Conv2D(100, (1, 10),
+                        kernel_constraint=max_norm(2., axis=(0, 1, 2)))(block2)
+        block3 = BatchNormalization(epsilon=1e-05, momentum=0.9)(block3)
+        block3 = Activation('elu')(block3)
+        block3 = MaxPooling2D(pool_size=(1, 2), strides=(1, 2))(block3)
+        block3 = Dropout(self._dropout_rate)(block3)
+
+        block4 = Conv2D(200, (1, 10),
+                        kernel_constraint=max_norm(2., axis=(0, 1, 2)))(block3)
+        block4 = BatchNormalization(epsilon=1e-05, momentum=0.9)(block4)
+        block4 = Activation('elu')(block4)
+        block4 = MaxPooling2D(pool_size=(1, 2), strides=(1, 2))(block4)
+        block4 = Dropout(self._dropout_rate)(block4)
+
+        flatten = Flatten()(block4)
+
+        if self._add_dense:
+            flatten = dense_layer(flatten, neurons=(256, 32), apply_dropout=True, apply_batchnorm=True,
+                                  dropout_rate=0.5,
+                                  monte_carlo=monte_carlo)
+
+        if self._logits:
+            custom_loss = keras.losses.BinaryCrossentropy(from_logits=True)
+            out = keras.layers.Dense(self._output_shape, kernel_constraint=max_norm(0.5))(flatten)
+
+        else:
+            custom_loss = keras.losses.BinaryCrossentropy(from_logits=False)
+            out = keras.layers.Dense(self._output_shape, kernel_constraint=max_norm(0.5),
+                                     activation="sigmoid")(flatten)
+
+        model = keras.models.Model(inputs=input1, outputs=out)
+        optim = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, decay=0.0)
+        model.compile(optimizer=optim, loss=custom_loss, metrics=self._metrics)
+
+        return model
+
+
+class ShallowNet(SUPERClassifier):
+    def __init__(self, input_shape, output_shape, save_path, fig_path, save_name, logits, batch_size=32, epochs=300,
+                 patience=50, verbose=False, learning_rate=0.001, dropout_rate=0.5, add_dense=False):
+        self._dropout_rate = dropout_rate
+        self._add_dense = add_dense
+
+        super().__init__(input_shape=input_shape, output_shape=output_shape, save_path=save_path, fig_path=fig_path,
+                         save_name=save_name, logits=logits, batch_size=batch_size, epochs=epochs,
+                         patience=patience, verbose=verbose, learning_rate=learning_rate)
+
+    def _square(self, x):
+        return K.square(x)
+
+    def _log(self, x):
+        return K.log(K.clip(x, min_value=1e-7, max_value=10000))
+
+    def _build_model(self, monte_carlo=False):
+        input1 = Input(self._input_shape)
+        block1 = Conv2D(40, (1, 25), kernel_constraint=max_norm(2., axis=(0, 1, 2)))(input1)
+        block1 = Conv2D(40, (self._input_shape[0], 1), use_bias=False,
+                        kernel_constraint=max_norm(2., axis=(0, 1, 2)))(block1)
+        block1 = BatchNormalization(epsilon=1e-05, momentum=0.9)(block1)
+        block1 = Activation(self._square)(block1)
+        block1 = AveragePooling2D(pool_size=(1, 35), strides=(1, 7))(block1)
+        block1 = Activation(self._log)(block1)
+        block1 = Dropout(self._dropout_rate)(block1)
+        flatten = Flatten()(block1)
+
+        if self._add_dense:
+            flatten = dense_layer(flatten, neurons=(256, 32), apply_dropout=True, apply_batchnorm=True,
+                                  dropout_rate=0.5,
+                                  monte_carlo=monte_carlo)
+
+        if self._logits:
+            custom_loss = keras.losses.BinaryCrossentropy(from_logits=True)
+            out = keras.layers.Dense(self._output_shape, kernel_constraint=max_norm(0.5))(flatten)
+
+        else:
+            custom_loss = keras.losses.BinaryCrossentropy(from_logits=False)
+            out = keras.layers.Dense(self._output_shape, kernel_constraint=max_norm(0.5),
+                                     activation="sigmoid")(flatten)
+
+        model = keras.models.Model(inputs=input1, outputs=out)
+        optim = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, decay=0.0)
+        model.compile(optimizer=optim, loss=custom_loss, metrics=self._metrics)
+
+        return model
+
