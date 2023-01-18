@@ -23,7 +23,7 @@ class DataGenerator(keras.utils.Sequence):
         self._use_conv2d = conv2d
 
     def __len__(self):
-        return int(np.floor(len(self._subject_ids) / self._batch_size))
+        return int(np.ceil(len(self._subject_ids) / self._batch_size))
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self._batch_size: (index + 1) * self._batch_size]

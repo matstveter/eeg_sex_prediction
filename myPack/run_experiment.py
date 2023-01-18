@@ -5,7 +5,8 @@ import tensorflow as tf
 import numpy as np
 
 from myPack.classifiers.inception_time import InceptionTime, InceptionTime2, InceptionTime3
-from myPack.classifiers.time_classifiers import TimeClassifer, TimeClassifer2
+from myPack.classifiers.model_with_temperature import ModelWithTemperature
+from myPack.classifiers.time_classifiers import TimeClassifer
 from myPack.data.data_generator import DataGenerator
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -35,17 +36,6 @@ def choose_model(model_name, model_dict: dict, general_dict: dict, name_of_model
                                      epochs=hyper_dict['epochs'],
                                      patience=hyper_dict['patience'],
                                      learning_rate=hyper_dict['lr'])
-    elif model_name == "time2":
-        model_object = TimeClassifer2(input_shape=model_dict['input_shape'],
-                                      output_shape=1,
-                                      save_path=general_dict['model_path'],
-                                      fig_path=general_dict['fig_path'],
-                                      save_name=name_of_model,
-                                      logits=model_dict['model_with_logits'],
-                                      batch_size=hyper_dict['batch_size'],
-                                      epochs=hyper_dict['epochs'],
-                                      patience=hyper_dict['patience'],
-                                      learning_rate=hyper_dict['lr'])
     elif model_name == "inc":
         model_object = InceptionTime(input_shape=model_dict['input_shape'],
                                      output_shape=1,
@@ -196,6 +186,12 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                                                split=[0.6, 0.2, 0.2])
             large_dataset = False
 
+        if general_dict['testing']:
+            # train_id = train_id[0:10]
+            # val_id = val_id[0:5]
+            # test_id = test_id[0:5]
+            NUM_MODELS = 2
+
         print(f"Train ID: {len(train_id)}, Val ID: {len(val_id)}, Test ID: {len(test_id)}")
 
         train_gen, val_gen, model_shape, test_x, test_y, test_dict = get_generators(train_id=train_id,
@@ -220,9 +216,15 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             model_object.fit(train_x=train_gen, train_y=None, val_x=val_gen, val_y=None, save_raw=True,
                              plot_test_acc=True)
 
+            model_object.model.save("keras_model")
+
+            temp_model = ModelWithTemperature(model=model_object.model, batch_size=hyper_dict['batch_size'],
+                                              save_path=general_dict['fig_path'] + "model_" + str(i))
+            temp_model.set_temperature(valid_loader=val_gen)
+
             print("[INFO] Trying to predict test set")
-            train_gen = None
-            val_gen = None
+            # train_gen = None
+            # val_gen = None
             test_x, test_y, test_dict = load_time_series_dataset(participant_list=test_id,
                                                                  data_dict=data_dict,
                                                                  datapoints_per_window=time_dict[
@@ -241,7 +243,6 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             _ = gc.collect()
             write_to_file(general_dict['write_file_path'], f"************* Ending Model Run: {i} *************\n\n",
                           also_print=True)
-            break
         save_to_pkl(result_dict, general_dict['save_path'], "result_dictionary")
     elif general_dict['experiment_type'] == "inc_test_kernels":
         if len(list(data_dict.keys())) > 2000:
@@ -462,5 +463,25 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
 
         result_dict['ensemble'] = resu_dict
         save_to_pkl(result_dict, general_dict['save_path'], "result_dictionary")
+    elif general_dict['experiment_type'] == "temp":
+
+        train_id, val_id, test_id = create_split_from_dict(data_dict, general_dict['prediction'],
+                                                           split=[0.7, 0.2, 0.1])
+        large_dataset = True
+        train_gen, val_gen, model_shape, test_x, test_y, test_dict = get_generators(train_id=train_id[0:1],
+                                                                                    val_id=val_id,
+                                                                                    test_id=test_id,
+                                                                                    data_dict=data_dict,
+                                                                                    hyper_dict=hyper_dict,
+                                                                                    time_dict=time_dict,
+                                                                                    large_data=large_dataset,
+                                                                                    conv2d=model_dict['use_conv2d'])
+        model_dict['input_shape'] = model_shape
+        
+        model = keras.models.load_model("/home/tvetern/Dropbox/phd/projects/gender_prediction/")
+        temp_model = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
+                                          save_path=general_dict['fig_path'] + "model_")
+        temp_model.set_temperature(valid_loader=val_gen)
+
     else:
         print(f"Unrecognized experiment type: {general_dict['experiment_type']}")
