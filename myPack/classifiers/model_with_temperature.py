@@ -1,5 +1,6 @@
 import sys
 
+import keras
 import numpy as np
 import sklearn.calibration
 import tensorflow as tf
@@ -17,12 +18,13 @@ class ModelWithTemperature:
     NB: Output of the model sent as input should be logits and NOT softmax or sigmoid
     """
 
-    def __init__(self, model, batch_size, save_path):
+    def __init__(self, model, batch_size, save_path, opt):
         self.model = model
         self.temperature = tf.compat.v1.get_variable(name="temperature", shape=(1,),
                                                      initializer=tf.constant_initializer(1.5))
         self.batch_size = batch_size
-        self.save_path = save_path + "_reliability_"
+        self.opt = opt
+        self.save_path = save_path + opt + "_reliability_"
 
     def temperature_scale(self, logits):
         temperature = tf.ones(logits.shape) * self.temperature
@@ -35,21 +37,38 @@ class ModelWithTemperature:
         # First: collect all the logits and labels for the validation set
         logits_list = []
         labels_list = []
+        print("Loading data....")
         for input_val, label in valid_loader:
             logits = self.model(input_val)
             logits_list.append(logits)
             labels_list.append(label)
         logits = tf.concat(logits_list, axis=0)
         labels = tf.concat(labels_list, axis=0)
+        print("Finished loading data!!")
 
+        import tensorflow_probability as tfp
         self.calibration_reliability(logits=logits, labels=labels, name_ext="before")
         # Calculate NLL and ECE before temperature scaling
         before_temperature_nll = nll_criterion(y_true=labels, y_pred=logits)
         # before_temperature_ece = ece_criterion(logits, labels)
         print('Before temperature - NLL: %.3f, ECE: %.3f' % (before_temperature_nll, 0))
 
+        print(sklearn.metrics.brier_score_loss(y_true=labels, y_prob=tf.keras.activations.sigmoid(logits)))
         # Define the optimizer
-        optimizer = tf.optimizers.SGD(learning_rate=0.01)
+        if self.opt == "sgd":
+            optimizer = tf.optimizers.SGD(learning_rate=0.01)
+            print("Running SGD")
+        elif self.opt == "adam":
+            optimizer = tf.optimizers.Adam(learning_rate=0.01)
+            print("Running Adam")
+        elif self.opt == "ftrl":
+            optimizer = tf.optimizers.Ftrl(learning_rate=0.01)
+            print("Running FTRL")
+        elif self.opt == "rms":
+            optimizer = tf.optimizers.RMSprop(learning_rate=0.01)
+            print("Running RMS")
+        else:
+            raise ValueError("Unrecognizable optimizer")
 
         # Define the evaluation function (closure)
         def closure():
@@ -61,26 +80,28 @@ class ModelWithTemperature:
 
         # Take the optimization step
         temp_loss = sys.maxsize
-        print(temp_loss)
 
-        for i in range(25000):
+        k = 0
+        for i in range(5000):
             optimizer.minimize(closure, [self.temperature])
 
             if i % 10 == 0:
                 l = closure()
                 print("Loss at iteration: ", i, " : ", l)
 
-                if l < temp_loss or l == 0.0:
+                if l < temp_loss and l != 0.0:
                     temp_loss = l
                 else:
                     print(f"Current loss: {l} -> Temp_loss: {temp_loss}")
-                    break
-
+                    k += 1
+                    if k == 100:
+                        break
         after_temperature_nll = nll_criterion(y_true=labels, y_pred=self.temperature_scale(logits))
         print('After temperature - NLL: %.3f, ECE: %.3f' % (after_temperature_nll, 0))
         print(f'Optimal temperature scale: {self.temperature}')
 
         self.calibration_reliability(logits=self.temperature_scale(logits), labels=labels, name_ext="after")
+        print(sklearn.metrics.brier_score_loss(y_true=labels, y_prob=tf.keras.activations.sigmoid(self.temperature_scale(logits))))
 
     def calibration_reliability(self, logits, labels, name_ext):
         # print(logits)
@@ -91,4 +112,6 @@ class ModelWithTemperature:
         # print(prob_pred)
         disp = sklearn.calibration.CalibrationDisplay(prob_true=prob_true, prob_pred=prob_pred, y_prob=logits)
         disp.plot()
+        plt.show()
         plt.savefig(self.save_path + name_ext)
+        plt.close()

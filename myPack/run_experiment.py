@@ -3,6 +3,7 @@ import os
 import gc
 import tensorflow as tf
 import numpy as np
+from keras.callbacks import CSVLogger, EarlyStopping, ModelCheckpoint
 
 from myPack.classifiers.eeg_models import DeepConvNet, EEGnet, EEGnet_SSVEP, ShallowNet
 from myPack.classifiers.inception_time import InceptionTime, InceptionTime2, InceptionTime3
@@ -312,66 +313,6 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             write_to_file(general_dict['write_file_path'], f"************* Ending Model Run: {i} *************\n\n",
                           also_print=True)
         save_to_pkl(result_dict, general_dict['save_path'], "result_dictionary")
-    elif general_dict['experiment_type'] == "inc_test_kernels":
-        if len(list(data_dict.keys())) > 2000:
-            train_id, val_id, test_id = create_split_from_dict(data_dict, general_dict['prediction'],
-                                                               split=[0.7, 0.2, 0.1])
-            large_dataset = True
-        else:
-            train_id, val_id, test_id = create_split_from_dict(data_dict, general_dict['prediction'],
-                                                               split=[0.6, 0.2, 0.2])
-            large_dataset = False
-
-        print(f"Train ID: {len(train_id)}, Val ID: {len(val_id)}, Test ID: {len(test_id)}")
-
-        train_gen, val_gen, model_shape, test_x, test_y, test_dict = get_generators(train_id=train_id,
-                                                                                    val_id=val_id,
-                                                                                    test_id=test_id,
-                                                                                    data_dict=data_dict,
-                                                                                    hyper_dict=hyper_dict,
-                                                                                    time_dict=time_dict,
-                                                                                    large_data=large_dataset,
-                                                                                    conv2d=model_dict['use_conv2d'])
-        model_dict['input_shape'] = model_shape
-
-        kernels = ((5, 10, 20), (7, 15, 30), (5, 20, 60))
-
-        for k in kernels:
-            write_to_file(general_dict['write_file_path'], f"************* Starting kernel: {k} *************",
-                          also_print=True)
-            for i in range(3):
-                write_to_file(general_dict['write_file_path'], f"************* Starting Model Run: {i} *************",
-                              also_print=True)
-                model_object = choose_model(model_name=model_dict['model_name'], model_dict=model_dict,
-                                            general_dict=general_dict, name_of_model="model_" + str(i),
-                                            hyper_dict=hyper_dict, kernels=k)
-
-                model_object.fit(train_x=train_gen, train_y=None, val_x=val_gen, val_y=None, save_raw=True,
-                                 plot_test_acc=True)
-
-                train_gen = None
-                val_gen = None
-                test_x, test_y, test_dict = load_time_series_dataset(participant_list=test_id,
-                                                                     data_dict=data_dict,
-                                                                     datapoints_per_window=time_dict[
-                                                                         'num_datapoints_per_window'],
-                                                                     number_of_windows=40,
-                                                                     starting_point=time_dict['start_point'],
-                                                                     conv2d=model_dict['use_conv2d'],
-                                                                     train_set=False)
-
-                acc, report, num_correct = model_object.predict(x_test=test_x, y_test=test_y, return_metrics=True)
-                write_to_file(general_dict['write_file_path'], f"Test Set Performance acc: {acc}")
-
-                evaluate_majority(model_object=model_object, test_dict=test_dict,
-                                  write_file=general_dict['write_file_path'])
-
-                _ = gc.collect()
-                write_to_file(general_dict['write_file_path'], f"************* Ending Model Run: {i} *************\n\n",
-                              also_print=True)
-                break
-            write_to_file(general_dict['write_file_path'], f"************* Ending kernel: {k} *************\n\n",
-                          also_print=True)
     elif general_dict['experiment_type'] == "inc_test_depth":
         if len(list(data_dict.keys())) > 2000:
             train_id, val_id, test_id = create_split_from_dict(data_dict, general_dict['prediction'],
@@ -394,7 +335,7 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                                                                     conv2d=model_dict['use_conv2d'])
         model_dict['input_shape'] = model_shape
 
-        depths = (2, 4, 6, 8, 10)
+        depths = (2, 3, 4, 5, 6)
 
         for d in depths:
             write_to_file(general_dict['write_file_path'], f"************* Starting deptjh: {d} *************",
@@ -532,10 +473,15 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
         result_dict['ensemble'] = resu_dict
         save_to_pkl(result_dict, general_dict['save_path'], "result_dictionary")
     elif general_dict['experiment_type'] == "temp":
+        from myPack.classifiers.keras_utils import mcc, specificity, recall, precision, f1
 
         train_id, val_id, test_id = create_split_from_dict(data_dict, general_dict['prediction'],
                                                            split=[0.7, 0.2, 0.1])
         large_dataset = True
+        if general_dict['testing']:
+            # val_id = val_id[:10]
+            pass
+
         train_gen, val_gen, model_shape, test_x, test_y, test_dict = get_generators(train_id=train_id[0:1],
                                                                                     val_id=val_id,
                                                                                     test_id=test_id,
@@ -546,10 +492,26 @@ def run_experiments(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                                                                     conv2d=model_dict['use_conv2d'])
         model_dict['input_shape'] = model_shape
 
-        model = keras.models.load_model("/home/tvetern/Dropbox/phd/projects/gender_prediction/")
+        model = keras.models.load_model("/home/tvetern/Dropbox/phd/projects/gender_prediction/keras_model",
+                                        custom_objects={'mcc': mcc, 'specificity': specificity, 'recall': recall,
+                                                        'precision': precision, 'f1': f1,
+                                                        'auc': tf.keras.metrics.AUC})
         temp_model = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
-                                          save_path=general_dict['fig_path'] + "model_")
+                                          save_path=general_dict['fig_path'], opt="sgd")
         temp_model.set_temperature(valid_loader=val_gen)
+
+        # temp2 = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
+        #                              save_path=general_dict['fig_path'], opt="adam")
+        # temp2.set_temperature(valid_loader=val_gen)
+
+        # temp3 = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
+        #                              save_path=general_dict['fig_path'], opt="ftrl")
+        # temp3.set_temperature(valid_loader=val_gen)
+
+        temp4 = ModelWithTemperature(model=model, batch_size=hyper_dict['batch_size'],
+                                     save_path=general_dict['fig_path'], opt="rms")
+        temp4.set_temperature(valid_loader=val_gen)
+
 
     else:
         print(f"Unrecognized experiment type: {general_dict['experiment_type']}")
