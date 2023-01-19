@@ -33,7 +33,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             _ = model_object.fit(train_generator=train_generator,
                                  validation_generator=validation_generator,
                                  plot_test_acc=True,
-                                 save_raw=True)
+                                 save_raw=False)
 
             eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
             eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
@@ -58,7 +58,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             _ = model_object.fit(train_generator=train_generator,
                                  validation_generator=validation_generator,
                                  plot_test_acc=True,
-                                 save_raw=True)
+                                 save_raw=False)
 
             eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
             eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
@@ -82,20 +82,20 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                      hyper_dict=hyper_dict,
                                      general_dict=general_dict,
                                      model_name=m)
-            # _ = model_object.fit(train_generator=train_generator,
-            #                      validation_generator=validation_generator,
-            #                      plot_test_acc=True,
-            #                      save_raw=True)
-            #
-            # eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
-            # eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
-            #                                                                test_dict=test_set_dictionary)
-            #
-            # write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-            #                                                f"\nMajority Voting Acc: "
-            #                                                f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            # write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
-            #               also_print=True)
+            _ = model_object.fit(train_generator=train_generator,
+                                 validation_generator=validation_generator,
+                                 plot_test_acc=True,
+                                 save_raw=False)
+
+            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                           test_dict=test_set_dictionary)
+
+            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                           f"\nMajority Voting Acc: "
+                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
+            write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
+                          also_print=True)
 
     elif general_dict['experiment_type'] == "temperature_scaling":
 
