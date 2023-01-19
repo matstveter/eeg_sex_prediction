@@ -8,7 +8,7 @@ from myPack.classifiers.super_classifier import SUPERClassifier
 class InceptionTime(SUPERClassifier):
     def __init__(self, input_shape, output_shape, save_path, fig_path, save_name, logits, batch_size=32, epochs=300,
                  patience=50, verbose=False, learning_rate=0.001, bottleneck=True, bottleneck_size=32,
-                 use_residual=True, depth=6, nb_filters=32, kernel_sizes=(10, 20, 40), dense: tuple = None):
+                 use_residual=True, depth=6, nb_filters=32, kernel_sizes=(10, 20, 40), add_dense: tuple = None):
 
         self._bottleneck = bottleneck
         self._bottleneck_size = bottleneck_size
@@ -16,7 +16,7 @@ class InceptionTime(SUPERClassifier):
         self._depth = depth
         self._nb_filters = nb_filters
         self._kernel_sizes = kernel_sizes
-        self._dense_layer = dense
+        self._dense_layer = add_dense
 
         super().__init__(input_shape=input_shape, output_shape=output_shape, save_path=save_path, fig_path=fig_path,
                          save_name=save_name, logits=logits, batch_size=batch_size, epochs=epochs,

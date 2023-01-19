@@ -28,7 +28,7 @@ def time_configparser(conf_file):
     model_dict['model_with_logits'] = config.getboolean('MODEL', 'model_with_logits')
     model_dict['apply_mc'] = config.getboolean('MODEL', 'monte_carlo_dropout')
     model_dict['output_shape'] = 1
-    model_dict['use_conv2d'] = config.getboolean('MODEL', 'conv_2d')
+    model_dict['use_conv2d'] = config.getboolean('MODEL', 'conv2d')
 
     hyper_dict['epochs'] = config.getint('HYPERPARAMETER', 'epochs')
     hyper_dict['patience'] = config.getint('HYPERPARAMETER', 'patience')

@@ -27,7 +27,6 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         for i in range(general_dict['num_models']):
             write_to_file(general_dict['write_file_path'], f"---- Starting Run {i+1}/{general_dict['num_models']} ----",
                           also_print=True)
-            run_dict = dict()
             model_object = get_model(which_model=model_dict['model_name'],
                                      model_dict=model_dict,
                                      hyper_dict=hyper_dict,
@@ -43,7 +42,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                                                            test_dict=test_set_dictionary)
 
             write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-                                                           f"\n Majority Voting Acc: "
+                                                           f"\nMajority Voting Acc: "
                                                            f"{eval_metrics['majority_voting_acc']}", also_print=True)
             metrics_dictionary[model_object.save_name] = eval_metrics
             write_to_file(general_dict['write_file_path'], f"---- Ending Run {i+1}/{general_dict['num_models']} ----",
