@@ -1,6 +1,10 @@
 import numpy as np
 from tensorflow import keras
-from myPack.data.data_handling import load_time_series_dataset, shuffle_dataset
+from myPack.utils import shuffle_two_arrays
+import random
+import enlighten
+
+meaning_of_life = 42  # Used for seeding the random function
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -73,22 +77,18 @@ class DataGenerator(keras.utils.Sequence):
                 data_list = np.concatenate((data_list, temp_data), axis=0)
 
         if self._batch_size > 1:
-            data_list, label_list = shuffle_dataset(data_list, label_list)
+            data_list, label_list = shuffle_two_arrays(data_list, label_list)
 
         return np.array(data_list), np.array(label_list)
 
 
-def get_all_data_generators(train_id: list, val_id: list, test_id: list, data_dict: dict, time_dict: dict,
-                            batch_size, use_conv2d=False):
+def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, use_conv2d=False):
     """
     1. Creates three DataGenerators: train, val, test
     2. Extracts the model shape based on the input data
     3. Creates a test_dict containing labels and data for all subjects in the test seet
 
     Args:
-        train_id: list over subjects in training set
-        val_id: list over subjects in validation set
-        test_id: list over subjects in test set
         data_dict: dictionary containing paths and labels
         time_dict: dictionary containing eeg time series specific information (srate, num_windows ...)
         batch_size: Batch size
@@ -101,10 +101,17 @@ def get_all_data_generators(train_id: list, val_id: list, test_id: list, data_di
         test_dict: Dict
         model_shape: shape of input
     """
+    # ---- FUNCTION PARAMETERS ---- #
+    num_test_windows = 40  # Number of windows for the test set
+    # ----------------------------- #
+
+    # Creating a split
+    train_id, val_id, test_id = create_split_from_dict(data_dict)
+
     training_generator = DataGenerator(list_IDs=train_id,
                                        data_dict=data_dict,
                                        time_slice=time_dict['num_datapoints_per_window'],
-                                       start=time_dict['start'],
+                                       start=time_dict['start_point'],
                                        num_windows=time_dict['num_windows'],
                                        train_set=time_dict['train_set_every_other'],
                                        batch_size=batch_size,
@@ -113,18 +120,16 @@ def get_all_data_generators(train_id: list, val_id: list, test_id: list, data_di
     validation_generator = DataGenerator(list_IDs=val_id,
                                          data_dict=data_dict,
                                          time_slice=time_dict['num_datapoints_per_window'],
-                                         start=time_dict['start'],
+                                         start=time_dict['start_point'],
                                          num_windows=time_dict['num_windows'],
                                          train_set=False,
                                          batch_size=batch_size,
                                          conv2d=use_conv2d)
 
-    num_test_windows = 40
-
     test_generator = DataGenerator(list_IDs=test_id,
                                    data_dict=data_dict,
                                    time_slice=time_dict['num_datapoints_per_window'],
-                                   start=time_dict['start'],
+                                   start=time_dict['start_point'],
                                    num_windows=num_test_windows,
                                    train_set=False,
                                    batch_size=batch_size,
@@ -135,18 +140,16 @@ def get_all_data_generators(train_id: list, val_id: list, test_id: list, data_di
                                             datapoints_per_window=time_dict['num_datapoints_per_window'],
                                             number_of_windows=time_dict['num_windows'],
                                             starting_point=time_dict['start_point'],
-                                            conv2d=use_conv2d,
-                                            train_set=False)
+                                            conv2d=use_conv2d)
     model_shape = test_x.shape[1:]
 
     _, _, test_dict = load_time_series_dataset(participant_list=test_id,
                                                data_dict=data_dict,
                                                datapoints_per_window=time_dict[
                                                    'num_datapoints_per_window'],
-                                               number_of_windows=40,
+                                               number_of_windows=num_test_windows,
                                                starting_point=time_dict['start_point'],
                                                conv2d=False,
-                                               train_set=False,
                                                only_dict=True)
 
     print(f"Training Generator Length: {len(training_generator)}"
@@ -156,3 +159,136 @@ def get_all_data_generators(train_id: list, val_id: list, test_id: list, data_di
           f"\nTest Dict Length: {len(list(test_dict))}")
 
     return training_generator, validation_generator, test_generator, test_dict, model_shape
+
+
+def create_split_from_dict(data_dict: dict):
+    """
+    Function that receives a dictionary and creates (depending on the predictions) a balanced train/test/val split
+
+    data_dict = dictionary containing data
+    prediction_key = Which key from the dictionary should be predicted
+    split = how should the data be split into train, val, test
+    resample_data = How should the dataset be balanced, either balance through resampling or
+    through cut-off
+
+    Returns:
+        train, test, val : list = Containing subject keys
+    """
+    prediction_key = "Sex"
+
+    if len(list(data_dict.keys())) > 2000:
+        split = [0.7, 0.2, 0.1]
+    else:
+        split = [0.6, 0.2, 0.2]
+
+    male = list()
+    female = list()
+
+    for k, v in data_dict.items():
+        if v[prediction_key] == 1:
+            female.append(k)
+        else:
+            male.append(k)
+
+    if len(male) != len(female):
+        if len(male) > len(female):
+            # temp = male
+            male = male[0:len(female)]
+            # extra_data = temp[len(female):]
+        else:
+            # temp = female
+            female = female[0:len(male)]
+            # extra_data = temp[len(male):]
+
+    num_participants = len(male) + len(female)
+
+    num_train = int((split[0] * num_participants) / 2)
+    num_val = int((split[1] * num_participants) / 2)
+
+    random.seed(meaning_of_life)
+    random.shuffle(male)
+    random.shuffle(female)
+
+    train = male[0:num_train] + female[0:num_train]
+    val = male[num_train:num_train + num_val] + female[num_train: num_train + num_val]
+    test = male[num_train + num_val:] + female[num_train + num_val:]
+
+    random.shuffle(train)
+    random.shuffle(val)
+    random.shuffle(test)
+
+    assert len(list(set(train).intersection(set(val)))) == 0, "ID exists in both train and val"
+    assert len(list(set(train).intersection(set(test)))) == 0, "ID exists in both train and test"
+    assert len(list(set(test).intersection(set(val)))) == 0, "ID exists in both val and test"
+
+    return train, val, test
+
+
+def load_time_series_dataset(participant_list, data_dict, datapoints_per_window, number_of_windows=None,
+                             starting_point=0, conv2d=True, only_dict=False):
+    """
+    Function that reads a folder of numpy arrays, based on a participant list, and returns two arrays, which is
+    data and labels, for example for trainX/trainY, or valX/valY
+
+    participant_list = list of participants belonging to that array
+    data_dict = dictionary containing all information about the participants, most important label and path for numpy
+    time_slice = The width of the time series window
+    fixed_size = Should the number of time series windows be a certain amount to balance the dataset, or not
+
+    Returns:
+        data, labels, dict, where the dictionary contains all data needed later for analysis
+    """
+    new_dict = dict()
+    data_list = list()
+    label_list = list()
+
+    skipped_participants = list()
+
+    pbar = enlighten.Counter(total=len(participant_list), desc="Number of participants", unit="Participants")
+    # Loop through the participant list
+    for p in participant_list:
+        try:
+            data = np.load(data_dict[p]['numpy_path'])
+            data = data['data']
+        except FileNotFoundError:
+            print(f"Participant: {p} -> Not found")
+            continue
+
+        if number_of_windows is not None and starting_point + (datapoints_per_window * number_of_windows) > data.shape[
+            1]:
+            print(f"Data Shape: {data.shape}, not included, skipping...")
+            skipped_participants.append(p)
+            continue
+
+        if number_of_windows is not None:
+            data = data[:, starting_point:starting_point + (datapoints_per_window * number_of_windows)]
+        else:
+            if data.shape[1] % datapoints_per_window != 0:
+                data = data[:, starting_point: starting_point + (int(data.shape[1] -
+                                                                     int(data.shape[1] % datapoints_per_window)))]
+
+        temp_data = np.array(np.array_split(data, data.shape[1] / datapoints_per_window, axis=1))
+
+        # Should not be done if 1D convolution?
+        if conv2d:
+            temp_data = np.expand_dims(temp_data, axis=3)
+
+        temp_dict = {"data": temp_data, 'label': data_dict[p]["Sex"], 'Age': data_dict[p]['Age']}
+
+        new_dict[p] = temp_dict
+
+        if not only_dict:
+            labels = [data_dict[p]["Sex"]] * temp_data.shape[0]
+            label_list = label_list + labels
+
+            if len(data_list) == 0:
+                data_list = temp_data
+            else:
+                data_list = np.concatenate((data_list, temp_data), axis=0)
+
+        pbar.update()
+
+    if not only_dict:
+        data_list, label_list = shuffle_two_arrays(data_list, label_list)
+    print(f"[INFO] Participants skipped: {skipped_participants}")
+    return np.array(data_list), np.array(label_list), new_dict

@@ -6,8 +6,10 @@ import seaborn as sns
 import numpy
 from typing import Tuple
 import pickle
+import random
 
 sns.set_theme()
+meaning_of_life = 42 # Seeding the random function
 
 
 def plot_accuracy(history, fig_path, save_name):
@@ -84,7 +86,7 @@ def create_folder(path: str, name: str) -> str:
     """
 
     # Create the full path to the new folder
-    save_path = os.path.join(path + "/", name+"/")
+    save_path = os.path.join(path + "/", name + "/")
 
     # Check if the folder already exists
     if not os.path.exists(save_path):
@@ -117,7 +119,7 @@ def create_run_folder(path: str) -> Tuple:
 
     # Create the new folder with a unique name based on the current date and time
     name = datetime.datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S')
-    run_path = os.path.join(path, name+"/")
+    run_path = os.path.join(path, name + "/")
     os.mkdir(run_path)
 
     # Create subfolders for figures and models
@@ -212,3 +214,40 @@ def load_pkl(path):
         return data_dict
     except:
         print("Could not load label file as pkl")
+
+
+def shuffle_two_arrays(data: list, labels: list) -> (list, list):
+    """
+    Shuffles the data and labels in the same order.
+
+    This function takes a dataset and a set of labels as input, and it shuffles the data and labels in the same order.
+    This can be useful for creating a randomized training set for machine learning algorithms.
+
+    Args:
+    - data: a list or array of data samples
+    - labels: a list or array of labels for the data samples
+
+    Returns:
+    - data: the input data, shuffled in the same order as the labels
+    - labels: the input labels, shuffled in the same order as the data
+
+    Raises:
+    - ValueError: if the data and labels have different lengths
+
+    Examples:
+    >>> data_input = [1, 2, 3, 4, 5]
+    >>> true_labels = ['a', 'b', 'c', 'd', 'e']
+    >>> shuffle_two_arrays(data_input, true_labels)
+    ([3, 1, 5, 4, 2], ['c', 'a', 'e', 'd', 'b'])
+    """
+
+    # Check that the data and labels have the same length
+    if len(data) != len(labels):
+        raise ValueError("data and labels must have the same length")
+
+    shuffled_dataset = list(zip(data, labels))
+    random.seed(meaning_of_life)
+    random.shuffle(shuffled_dataset)
+    data, labels = zip(*shuffled_dataset)
+
+    return data, labels
