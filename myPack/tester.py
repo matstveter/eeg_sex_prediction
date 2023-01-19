@@ -44,7 +44,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                                            f"{eval_metrics['majority_voting_acc']}", also_print=True)
             write_to_file(general_dict['write_file_path'], f"---- Ending Depth {d}/ {depths} ----",
                           also_print=True)
-    elif general_dict['experiment_type'] == "dense_layers":
+    elif general_dict['experiment_type'] == "dense":
         denselayers = (32, 64, (64, 16), (32, 8), (16, 4))
         for d in denselayers:
             write_to_file(general_dict['write_file_path'], f"---- Starting Dense {d}/ {denselayers} ----",
@@ -54,7 +54,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                      hyper_dict=hyper_dict,
                                      general_dict=general_dict,
                                      model_name=model_dict['model_name'] + f"_depth_{d}",
-                                     dense=d)
+                                     add_dense=d)
             _ = model_object.fit(train_generator=train_generator,
                                  validation_generator=validation_generator,
                                  plot_test_acc=True,

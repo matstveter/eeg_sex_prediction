@@ -48,22 +48,22 @@ class ExperimentalClassifier(SUPERClassifier):
     def _build_model(self, monte_carlo=False):
         inp = Input(self._input_shape)
 
-        x = conv_layer(inp, num_filters=(64, 64, 64), kernel_size=((1, 10), (1, 20), (1, 40)), use_2d=self._conv2d,
+        x = conv_layer(inp, num_filters=(32, 32), kernel_size=((1, 10), (1, 20)), use_2d=self._conv2d,
                        padding="same")
         x = pooling_layers(x, pool_size=(1, 2), stride=(1, 2), use_2d=self._conv2d)
         x = dropout_layer(x, rate=0.1, monte_carlo=monte_carlo)
 
-        x = conv_layer(x, num_filters=(128, 128), kernel_size=((1, 7), (1, 7)),
+        x = conv_layer(x, num_filters=(32, 32), kernel_size=((1, 7), (1, 7)),
                        use_2d=self._conv2d, padding="same")
         x = pooling_layers(x, pool_size=(1, 2), stride=(1, 2), use_2d=self._conv2d)
         x = dropout_layer(x, rate=0.1, monte_carlo=monte_carlo)
 
-        x = conv_layer(x, num_filters=(256, 256), kernel_size=((3, 3), (3, 3)), use_2d=self._conv2d, padding="same")
+        x = conv_layer(x, num_filters=(64, 64), kernel_size=((3, 3), (3, 3)), use_2d=self._conv2d, padding="same")
         x = pooling_layers(x, pool_size=(2, 2), stride=(2, 2), use_2d=self._conv2d)
         x = dropout_layer(x, rate=0.1, monte_carlo=monte_carlo)
 
         x = flatten_layer(x, use_flatten=False, use_2d=self._conv2d)
-        x = dense_layer(x, neurons=(256, 32), apply_dropout=True, apply_batchnorm=True, dropout_rate=0.5,
+        x = dense_layer(x, neurons=(128, 32), apply_dropout=True, apply_batchnorm=True, dropout_rate=0.5,
                         monte_carlo=monte_carlo)
 
         model = self._finish_model(inp, x=x, output_shape=self._output_shape)
