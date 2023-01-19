@@ -99,97 +99,84 @@ class SUPERClassifier(abc.ABC):
         model.compile(optimizer=optim, loss=custom_loss, metrics=self._metrics)
         return model
 
-    def _eval_trained_models(self, val_x, val_y) -> None:
+    def _eval_trained_models(self, validation_generator) -> None:
         """ During model.fit, the best performing models will be saved during training. This function is called after
         the model is trained, to find the best model between the model that has been saved during training, and the
         last model after training. Then the best models weights will be saved in the model folder.
 
         Args:
-            val_x: validation set input
-            val_y: validation set ground truth
+            validation_generator: validation set generator
 
         Returns:
             None
         """
-        if val_y is not None:
-            self._temp_model.load_weights(self._model_path + "weights.mdl.wrs.hdf5")
-            _, y_predicted_temp = apply_sigmoid_probs_and_classify(self._temp_model.predict(x=val_x,
-                                                                                            batch_size=self._batch_size),
-                                                                   is_logits=self._logits)
-            res_temp_model_acc = accuracy_score(y_true=val_y, y_pred=y_predicted_temp)
+        self._temp_model.load_weights(self._model_path + "weights.mdl.wrs.hdf5")
+        res_temp_model = self._temp_model.evaluate(x=validation_generator, batch_size=self._batch_size, verbose=False)
+        acc_temp = res_temp_model[1]
+        # auc_temp = res_temp_model[-1]
 
-            _, y_predicted_model = apply_sigmoid_probs_and_classify(self._model.predict(x=val_x,
-                                                                                        batch_size=self._batch_size),
-                                                                    is_logits=self._logits)
-            model_acc = accuracy_score(y_true=val_y, y_pred=y_predicted_model)
+        res_model = self._model.evaluate(x=validation_generator, batch_size=self._batch_size, verbose=False)
+        acc_model = res_model[1]
+        # auc_model = res_model[-1]
 
-            if res_temp_model_acc >= model_acc:
-                self._temp_model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
-            else:
-                self._model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
+        # todo Evaluate auc instead of acc???
+
+        if acc_temp >= acc_model:
+            self._temp_model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
         else:
-            self._temp_model.load_weights(self._model_path + "weights.mdl.wrs.hdf5")
-            res_temp_model = self._temp_model.evaluate(x=val_x, batch_size=self._batch_size, verbose=False)
-            acc_temp = res_temp_model[1]
-            # auc_temp = res_temp_model[-1]
+            self._model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
 
-            res_model = self._model.evaluate(x=val_x, batch_size=self._batch_size, verbose=False)
-            acc_model = res_model[1]
-            # auc_model = res_model[-1]
-
-            # todo Evaluate auc instead of acc???
-
-            if acc_temp >= acc_model:
-                self._temp_model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
-            else:
-                self._model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
-
-    def fit(self, train_x, train_y, val_x, val_y, plot_test_acc=False, save_raw=False):
-        if train_y is None and val_y is None:
-            # This applies when train_x and val_x is on the type of generator
-            history = self._model.fit(x=train_x, validation_data=val_x, epochs=self._epochs,
-                                      callbacks=self._callbacks)
-        else:
-            history = self._model.fit(x=train_x, y=train_y, validation_data=(val_x, val_y), epochs=self._epochs,
-                                      batch_size=self._batch_size, shuffle=True, callbacks=self._callbacks)
+    def fit(self, train_generator, validation_generator, plot_test_acc=False, save_raw=False):
+        history = self._model.fit(x=train_generator, validation_data=validation_generator, epochs=self._epochs,
+                                  callbacks=self._callbacks)
 
         # Evaluate the last model against the saved model during the training
-        self._eval_trained_models(val_x=val_x, val_y=val_y)
-        print("[INFO] Model evaluated and selected!")
+        self._eval_trained_models(validation_generator=validation_generator)
 
         # Load the best model from the evaluation function
-        print("[INFO] Loading MC and best model!")
         self._model.load_weights(self._model_path + self._save_name + "_weights.hdf5")
         self._mc_model.load_weights(self._model_path + self._save_name + "_weights.hdf5")
 
         if plot_test_acc:
             plot_accuracy(history=history, fig_path=self._fig_path, save_name=self._save_name)
 
-        print("[INFO] Plotted Accuracy")
-
         if save_raw:
             save_to_pkl(history.history, path=self._fig_path, name=self._save_name + "_raw_files")
 
-        print("[INFO] Saved raw")
-
         keras.backend.clear_session()
-
         return history.history
 
-    def predict(self, x_test, y_test, return_metrics=False):
-        y_pred = self._model.predict(x=x_test, batch_size=self._batch_size)
+    def predict(self, data, labels=None,  return_metrics=False, verbose=False):
+        """ Predicts input data, can be either a data generator or a testx/testy dataset
 
-        y_sigmoid, y_predicted = apply_sigmoid_probs_and_classify(y_pred, is_logits=self._logits)
+        Args:
+            data: dataGenerator or numpy array
+            labels:
+            return_metrics:
+            verbose:
+
+        Returns:
+
+        """
         if return_metrics:
-            accuracy = accuracy_score(y_true=y_test, y_pred=y_predicted)
-            num_correct = accuracy_score(y_true=y_test, y_pred=y_predicted, normalize=False)
-            report = classification_report(y_true=y_test, y_pred=y_predicted, labels=[0, 1],
-                                           target_names=['male', 'female'], zero_division=0, output_dict=True)
-            # print(self._model.evaluate(x=x_test, y=y_test, batch_size=self._batch_size))
+            if isinstance(data, np.ndarray) and labels is None:
+                raise ValueError("Need labels as well if the data argument is not a datagenerator")
 
-            return accuracy, report, num_correct
+            # Returns evaluation metrics
+            eval_metrics = self._model.evaluate(x=data, y=labels, batch_size=self._batch_size, return_dict=True,
+                                                verbose=verbose)
+            if labels is not None:
+                # This means that the labels are not none, which indicates that the number of correct predictions
+                # is also relevant(majority voting will use this option)
+                y_pred, y_sig, y_class = self.predict(data=data, labels=labels)
+                num_correct = accuracy_score(y_true=labels, y_pred=y_class, normalize=False)
+                eval_metrics['num_correct'] = num_correct
+            return eval_metrics
         else:
-            return y_pred, y_predicted
+            # Predicts, sends through sigmoid if the logits is True and then classifies
+            y_pred = self._model.predict(x=data, batch_size=self._batch_size, verbose=verbose)
+            y_sigmoid, y_classes = apply_sigmoid_probs_and_classify(y_prediction=y_pred, is_logits=self._logits)
+            return y_pred, y_sigmoid, y_classes
 
     def __repr__(self):
         return f"Model Name: {self._save_name}"
