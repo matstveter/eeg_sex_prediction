@@ -8,7 +8,7 @@ from myPack.utils import print_dataset
 meaning_of_life = 42
 
 
-def create_split_from_dict(data_dict: dict, prediction_key: str, split=None, keep_size=False, kfold=False):
+def create_split_from_dict(data_dict: dict):
     """
     Function that receives a dictionary and creates (depending on the predictions) a balanced train/test/val split
 
@@ -21,62 +21,56 @@ def create_split_from_dict(data_dict: dict, prediction_key: str, split=None, kee
     Returns:
         train, test, val : list = Containing subject keys
     """
+    prediction_key = "Sex"
 
-    if split is None:
-        split = [0.70, 0.20, 0.10]
-    elif sum(split) > 1.0:
-        print(f"[ERROR] Train/Test/Val split is greater than 1.0")
-        raise ValueError
-
-    if prediction_key == 'Sex':
-        male = list()
-        female = list()
-
-        for k, v in data_dict.items():
-            if v[prediction_key] == 1:
-                female.append(k)
-            else:
-                male.append(k)
-
-        if len(male) != len(female):
-            if keep_size:
-                pass
-            else:
-                if len(male) > len(female):
-                    temp = male
-                    male = male[0:len(female)]
-                    extra_data = temp[len(female):]
-                else:
-                    temp = female
-                    female = female[0:len(male)]
-                    extra_data = temp[len(male):]
-
-        num_participants = len(male) + len(female)
-
-        if kfold:
-            return male, female, num_participants
-
-        num_train = int((split[0] * num_participants) / 2)
-        num_val = int((split[1] * num_participants) / 2)
-
-        random.seed(meaning_of_life)
-        random.shuffle(male)
-        random.shuffle(female)
-
-        train = male[0:num_train] + female[0:num_train]
-        val = male[num_train:num_train + num_val] + female[num_train: num_train + num_val]
-        test = male[num_train + num_val:] + female[num_train + num_val:]
-
-        random.shuffle(train)
-        random.shuffle(val)
-        random.shuffle(test)
-        assert len(list(set(train).intersection(set(val)))) == 0, "ID exists in both train and val"
-        assert len(list(set(train).intersection(set(test)))) == 0, "ID exists in both train and test"
-        assert len(list(set(test).intersection(set(val)))) == 0, "ID exists in both val and test"
-        return train, val, test
+    if len(list(data_dict.keys())) > 2000:
+        split = [0.7, 0.2, 0.1]
+        large_data = True
     else:
-        print(f"[ERROR] Prediction key not recognized : {prediction_key}\n")
-        raise NotImplemented
+        split = [0.6, 0.2, 0.2]
+        large_data = False
+
+    male = list()
+    female = list()
+
+    for k, v in data_dict.items():
+        if v[prediction_key] == 1:
+            female.append(k)
+        else:
+            male.append(k)
+
+    if len(male) != len(female):
+        if len(male) > len(female):
+            temp = male
+            male = male[0:len(female)]
+            # extra_data = temp[len(female):]
+        else:
+            temp = female
+            female = female[0:len(male)]
+            # extra_data = temp[len(male):]
+
+    num_participants = len(male) + len(female)
+
+    num_train = int((split[0] * num_participants) / 2)
+    num_val = int((split[1] * num_participants) / 2)
+
+    random.seed(meaning_of_life)
+    random.shuffle(male)
+    random.shuffle(female)
+
+    train = male[0:num_train] + female[0:num_train]
+    val = male[num_train:num_train + num_val] + female[num_train: num_train + num_val]
+    test = male[num_train + num_val:] + female[num_train + num_val:]
+
+    random.shuffle(train)
+    random.shuffle(val)
+    random.shuffle(test)
+
+    assert len(list(set(train).intersection(set(val)))) == 0, "ID exists in both train and val"
+    assert len(list(set(train).intersection(set(test)))) == 0, "ID exists in both train and test"
+    assert len(list(set(test).intersection(set(val)))) == 0, "ID exists in both val and test"
+
+    return train, val, test, large_data
 
 
 def load_time_series_dataset(participant_list, data_dict, datapoints_per_window, number_of_windows=None,
