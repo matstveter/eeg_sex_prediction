@@ -2,14 +2,70 @@ import csv
 import os
 import datetime
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 import numpy
 from typing import Tuple
 import pickle
 import random
+from scipy.stats import sem, t
 
+sns.set_style(style="white")
 sns.set_theme()
-meaning_of_life = 42 # Seeding the random function
+
+meaning_of_life = 42  # Seeding the random function
+
+
+def plot_confidence_interval(histories: list, key: str, save_name: str, confidence: float = 0.95) -> None:
+    """
+    Plots confidence intervals for "key" over multiple runs
+    Args:
+        histories: list of history objects
+        key: "loss", "accuracy",
+        confidence: 0.95 for 0.95 confidence interval
+        include_val: Include validation in the same plot
+        save_name: where to save the plot
+
+    Returns:
+        None
+    """
+
+    def _plot_conf(data):
+        data = np.array(data).T
+        n = len(data)
+        m = np.mean(data, axis=1)
+        std_err = sem(data, axis=1)
+        h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+
+        start = m - h
+        end = m + h
+        return n, start, end, m
+
+    train = [np.array(history.history[key]) for history in histories]
+    val = [np.array(history.history["val_" + key]) for history in histories]
+
+    n1, s1, e1,  m1 = _plot_conf(train)
+    n2, s2, e2,  m2 = _plot_conf(val)
+
+    plt.plot(m1, color="darkorange")
+    plt.plot(m2, color="blue")
+    plt.legend(['Train', 'Val'], loc="upper right")
+
+    plt.fill_between(range(n1), s1, e1, alpha=0.2, color="orange")
+    plt.fill_between(range(n2), s2, e2, alpha=0.2, color="mediumblue")
+
+    plt.ylabel(key.upper())
+    plt.xlabel("Epochs")
+    plt.title(f"Confidence {confidence} for {key.upper()}")
+    if key == "mcc":
+        plt.ylim(-1.0, 1.0)
+    elif key == "loss":
+        pass
+    else:
+        plt.ylim(0.0, 1.0)
+    plt.show()
+    plt.savefig(save_name + key + "_conf_plot.png")
+    plt.close()
 
 
 def plot_accuracy(history, fig_path, save_name):

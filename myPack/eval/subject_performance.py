@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import accuracy_score
 from myPack.classifiers.keras_utils import apply_sigmoid_probs_and_classify
-from myPack.uncertainty_explainability.category_uncertainty import calculate_uncertainty_metrics
+from myPack.eval.category_uncertainty import calculate_uncertainty_metrics
 
 
 class SubjectPerformance:

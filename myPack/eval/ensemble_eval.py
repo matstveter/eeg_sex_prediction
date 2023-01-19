@@ -1,8 +1,8 @@
 import numpy as np
 import tensorflow as tf
 from myPack.utils import write_to_file
-from myPack.uncertainty_explainability.category_uncertainty import CategorySampleUncertainty
-from myPack.uncertainty_explainability.subject_performance import SubjectPerformance
+from myPack.eval.category_uncertainty import CategorySampleUncertainty
+from myPack.eval.subject_performance import SubjectPerformance
 
 
 def eval_certain_subjects(res_list: list, num_subjects: int, write_file: str) -> None:

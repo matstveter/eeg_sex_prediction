@@ -1,12 +1,12 @@
 import numpy as np
 
+from myPack.eval.performance_evaluation import evaluate_majority_voting
 from myPack.classifiers.model_chooser import get_model
 from myPack.data.data_handler import get_all_data_and_generators
-from myPack.utils import write_to_file
+from myPack.utils import plot_confidence_interval, write_to_file, save_to_pkl
 
 
 def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, time_dict: dict, general_dict: dict):
-
     # Get data generators, test_dictionary and model shape
     train_generator, validation_generator, test_generator, test_set_dictionary, model_shape = \
         get_all_data_and_generators(data_dict=data_dict, time_dict=time_dict, batch_size=hyper_dict['batch_size'],
@@ -20,21 +20,41 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
 
     if general_dict['experiment_type'] == "single_model":
         # Depending on the model that is running, this can adjust the models "extra" parameters
-        added_args = {}
+
+        metrics_dictionary = dict()
+        histories = list()
 
         for i in range(general_dict['num_models']):
-
+            write_to_file(general_dict['write_file_path'], f"---- Starting Run {i+1}/{general_dict['num_models']} ----",
+                          also_print=True)
+            run_dict = dict()
             model_object = get_model(which_model=model_dict['model_name'],
                                      model_dict=model_dict,
                                      hyper_dict=hyper_dict,
                                      general_dict=general_dict,
-                                     model_name=model_dict['model_name'] + "_" + str(i),
-                                     **added_args)
-            print(model_object.predict(data=test_generator, return_metrics=True))
+                                     model_name=model_dict['model_name'] + "_" + str(i))
+            train_hist = model_object.fit(train_generator=train_generator,
+                                          validation_generator=validation_generator,
+                                          plot_test_acc=True,
+                                          save_raw=True)
+            histories.append(train_hist)
+            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                           test_dict=test_set_dictionary)
 
-            a = np.zeros((10, 129, 1000))
-            b = np.zeros((10))
-            print(model_object.predict(data=a, labels=b, return_metrics=True))
+            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                           f"\n Majority Voting Acc: "
+                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
+            metrics_dictionary[model_object.save_name] = eval_metrics
+            write_to_file(general_dict['write_file_path'], f"---- Ending Run {i+1}/{general_dict['num_models']} ----",
+                          also_print=True)
+
+        # RUN FINISHED -> SAVING STUFF #
+        # plot_confidence_interval(histories=histories, key="accuracy", save_name=general_dict['fig_path'])
+        # plot_confidence_interval(histories=histories, key="f1", save_name=general_dict['fig_path'])
+        # plot_confidence_interval(histories=histories, key="auc", save_name=general_dict['fig_path'])
+        save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
+
     elif general_dict['experiment_type'] == "ensemble_models":
         pass
     elif general_dict['experiment_type'] == "ensemble_weights":

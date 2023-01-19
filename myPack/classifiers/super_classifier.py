@@ -68,6 +68,9 @@ class SUPERClassifier(abc.ABC):
     # ----------------#
     # Properties      #
     # ----------------#
+    @property
+    def save_name(self):
+        return self._save_name
 
     @property
     def input_shape(self):
@@ -144,7 +147,7 @@ class SUPERClassifier(abc.ABC):
             save_to_pkl(history.history, path=self._fig_path, name=self._save_name + "_raw_files")
 
         keras.backend.clear_session()
-        return history.history
+        return history
 
     def predict(self, data, labels=None,  return_metrics=False, verbose=False):
         """ Predicts input data, can be either a data generator or a testx/testy dataset
@@ -165,12 +168,12 @@ class SUPERClassifier(abc.ABC):
             # Returns evaluation metrics
             eval_metrics = self._model.evaluate(x=data, y=labels, batch_size=self._batch_size, return_dict=True,
                                                 verbose=verbose)
-            if labels is not None:
-                # This means that the labels are not none, which indicates that the number of correct predictions
-                # is also relevant(majority voting will use this option)
-                y_pred, y_sig, y_class = self.predict(data=data, labels=labels)
-                num_correct = accuracy_score(y_true=labels, y_pred=y_class, normalize=False)
-                eval_metrics['num_correct'] = num_correct
+            # if labels is not None:
+            #     # This means that the labels are not none, which indicates that the number of correct predictions
+            #     # is also relevant(majority voting will use this option)
+            #     y_pred, y_sig, y_class = self.predict(data=data, labels=labels)
+            #     num_correct = accuracy_score(y_true=labels, y_pred=y_class, normalize=False)
+            #     eval_metrics['num_correct'] = num_correct
             return eval_metrics
         else:
             # Predicts, sends through sigmoid if the logits is True and then classifies

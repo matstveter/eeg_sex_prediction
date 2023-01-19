@@ -4,24 +4,6 @@ from myPack.utils import *
 import shutil
 
 
-def get_info_from_config(path, section, config_key):
-    """
-    Function which returns a specific value from the config file
-
-    Args:
-        section: which section
-        path: path to config-file
-        config_key: what part of the config file should be collected
-
-    Returns:
-    The data specified in the config_key
-    """
-    config = configparser.ConfigParser()
-    config.read(path)
-
-    return config.get(section, config_key)
-
-
 def time_configparser(conf_file):
     """
     Function that receives a config file and extracts relevant information and returns it in dictionary form
@@ -53,8 +35,6 @@ def time_configparser(conf_file):
     hyper_dict['batch_size'] = config.getint('HYPERPARAMETER', 'batch_size')
     hyper_dict['lr'] = config.getfloat('HYPERPARAMETER', 'lr')
     hyper_dict['kernel_init'] = config.get('HYPERPARAMETER', 'kernel_init')
-    hyper_dict['dropout'] = config.getfloat('HYPERPARAMETER', 'dropout')
-    hyper_dict['cnn_dropout'] = config.getfloat('HYPERPARAMETER', 'cnn_dropout')
 
     time_dict['srate'] = config.getint('TIME', 'sampling_rate')
     time_dict['num_windows'] = config.getint('TIME', 'num_windows')
@@ -62,11 +42,13 @@ def time_configparser(conf_file):
     time_dict['start_point'] = int(config.getfloat('TIME', 'starting_seconds') * time_dict['srate'])
     time_dict['train_set_every_other'] = config.getboolean('TIME', 'training_set_every_other_window')
 
-    general_dict['save_path'] = config.get('GENERAL', 'save_path')
-    general_dict['prediction'] = "Sex"
+    general_dict['test_mode'] = config.getboolean('GENERAL', 'test_mode')
     general_dict['experiment_type'] = config.get('GENERAL', 'experiment_type')
+    general_dict['num_models'] = config.getint('GENERAL', 'num_models')
 
-    # todo Check that if the chosen model is InceptionTime, then use_conv2d must be false
+    hyper_dict['dropout'] = 0.5
+    hyper_dict['cnn_dropout'] = 0.1
+    general_dict['save_path'] = "/home/tvetern/datasets/Results/"
 
     return model_dict, hyper_dict, time_dict, general_dict
 
@@ -93,11 +75,15 @@ def setup_run():
     general_dict['testing'] = arg.test
 
     if arg.test:
-        hyper_dict['epochs'] = 3
+        hyper_dict['epochs'] = 4
 
     general_dict['save_path'], general_dict['fig_path'], general_dict['model_path'] = \
         create_run_folder(general_dict['save_path'])
     shutil.copyfile(arg.conf, general_dict['save_path'] + arg.conf)
     data_dict = load_pkl(arg.dict)
+
+    general_dict['write_file_path'] = general_dict['save_path'] + "metrics_and_info.txt"
+    f = open(general_dict['write_file_path'], "w")
+    f.close()
 
     return data_dict, model_dict, hyper_dict, time_dict, general_dict
