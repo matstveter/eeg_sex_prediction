@@ -148,6 +148,7 @@ def get_all_data_generators(train_id: list, val_id: list, test_id: list, data_di
                                                conv2d=False,
                                                train_set=False,
                                                only_dict=True)
+
     print(f"Training Generator Length: {len(training_generator)}"
           f"\nValidation Generator Length: {len(validation_generator)}"
           f"\nTest Generator Length: {len(test_generator)}"
