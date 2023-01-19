@@ -39,6 +39,6 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path, monte_carlo_ense
                 _, _, temp_class = model.predict(data=data_x_tensor, monte_carlo=True)
                 pred_list.append(temp_class)
 
-    # todo Two options
+    # todo Two options - or do both
     # Evaluate each subject according to each of the members of the ensemble and how the majority votes
     # Or average each sample over the ensemble, and then do the majority??
