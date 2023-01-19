@@ -11,7 +11,7 @@ from skimage.color import gray2rgb, rgb2gray
 def explain_with_lime(sample_to_explain: np.ndarray, keras_model):
     sample_to_explain = np.squeeze(sample_to_explain, axis=2)
     explainer = lime_image.LimeImageExplainer()
-    explanation = explainer.explain_instance(image=sample_to_explain, classifier_fn=keras_model.predict, top_labels=5,
+    explanation = explainer.explain_instance(image=sample_to_explain, classifier_fn=keras_model.predict, top_labels=1,
                                              hide_color=0, num_samples=1000)
     temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=True, num_features=5,
                                                 hide_rest=True)

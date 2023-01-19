@@ -149,7 +149,7 @@ class SUPERClassifier(abc.ABC):
         keras.backend.clear_session()
         return history
 
-    def predict(self, data, labels=None,  return_metrics=False, verbose=False):
+    def predict(self, data, labels=None,  return_metrics=False, verbose=False, monte_carlo=False):
         """ Predicts input data, can be either a data generator or a testx/testy dataset
 
         Args:
@@ -157,6 +157,7 @@ class SUPERClassifier(abc.ABC):
             labels:
             return_metrics:
             verbose:
+            monte_carlo
 
         Returns:
 
@@ -177,7 +178,10 @@ class SUPERClassifier(abc.ABC):
             return eval_metrics
         else:
             # Predicts, sends through sigmoid if the logits is True and then classifies
-            y_pred = self._model.predict(x=data, batch_size=self._batch_size, verbose=verbose)
+            if monte_carlo:
+                y_pred = self._mc_model.predict(x=data, batch_size=self._batch_size, verbose=verbose)
+            else:
+                y_pred = self._model.predict(x=data, batch_size=self._batch_size, verbose=verbose)
             y_sigmoid, y_classes = apply_sigmoid_probs_and_classify(y_prediction=y_pred, is_logits=self._logits)
             return y_pred, y_sigmoid, y_classes
 

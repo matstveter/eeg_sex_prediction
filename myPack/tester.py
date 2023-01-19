@@ -81,8 +81,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                      model_dict=model_dict,
                                      hyper_dict=hyper_dict,
                                      general_dict=general_dict,
-                                     model_name=m,
-                                     add_dense=(32, 10))
+                                     model_name=m)
             # _ = model_object.fit(train_generator=train_generator,
             #                      validation_generator=validation_generator,
             #                      plot_test_acc=True,
@@ -95,8 +94,8 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             # write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
             #                                                f"\nMajority Voting Acc: "
             #                                                f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
-                          also_print=True)
+            # write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
+            #               also_print=True)
 
     elif general_dict['experiment_type'] == "temperature_scaling":
 

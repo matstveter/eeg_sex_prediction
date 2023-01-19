@@ -25,7 +25,8 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         histories = list()
 
         for i in range(general_dict['num_models']):
-            write_to_file(general_dict['write_file_path'], f"---- Starting Run {i+1}/{general_dict['num_models']} ----",
+            write_to_file(general_dict['write_file_path'],
+                          f"---- Starting Run {i + 1}/{general_dict['num_models']} ----",
                           also_print=True)
             model_object = get_model(which_model=model_dict['model_name'],
                                      model_dict=model_dict,
@@ -45,7 +46,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                                            f"\nMajority Voting Acc: "
                                                            f"{eval_metrics['majority_voting_acc']}", also_print=True)
             metrics_dictionary[model_object.save_name] = eval_metrics
-            write_to_file(general_dict['write_file_path'], f"---- Ending Run {i+1}/{general_dict['num_models']} ----",
+            write_to_file(general_dict['write_file_path'], f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
                           also_print=True)
 
         # RUN FINISHED -> SAVING STUFF #
@@ -55,7 +56,30 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
 
     elif general_dict['experiment_type'] == "ensemble_models":
-        pass
+        models = model_dict['model_name'].split(",")
+        for m in models:
+            write_to_file(general_dict['write_file_path'], f"---- Starting Model {m}/ {models} ----",
+                          also_print=True)
+            model_object = get_model(which_model=m,
+                                     model_dict=model_dict,
+                                     hyper_dict=hyper_dict,
+                                     general_dict=general_dict,
+                                     model_name=m)
+            train_history = model_object.fit(train_generator=train_generator,
+                                            validation_generator=validation_generator,
+                                            plot_test_acc=True,
+                                            save_raw=True)
+
+            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                           test_dict=test_set_dictionary)
+
+            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                           f"\nMajority Voting Acc: "
+                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
+            write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
+                          also_print=True)
+
     elif general_dict['experiment_type'] == "ensemble_weights":
         pass
     else:
