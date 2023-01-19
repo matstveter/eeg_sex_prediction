@@ -74,7 +74,7 @@ def create_split_from_dict(data_dict: dict):
 
 
 def load_time_series_dataset(participant_list, data_dict, datapoints_per_window, number_of_windows=None,
-                             starting_point=0, train_set=False, conv2d=True):
+                             starting_point=0, train_set=False, conv2d=True, only_dict=False):
     """
     Function that reads a folder of numpy arrays, based on a participant list, and returns two arrays, which is
     data and labels, for example for trainX/trainY, or valX/valY
@@ -131,15 +131,19 @@ def load_time_series_dataset(participant_list, data_dict, datapoints_per_window,
 
         new_dict[p] = temp_dict
 
-        labels = [data_dict[p]["Sex"]] * temp_data.shape[0]
-        label_list = label_list + labels
+        if not only_dict:
+            labels = [data_dict[p]["Sex"]] * temp_data.shape[0]
+            label_list = label_list + labels
 
-        if len(data_list) == 0:
-            data_list = temp_data
-        else:
-            data_list = np.concatenate((data_list, temp_data), axis=0)
+            if len(data_list) == 0:
+                data_list = temp_data
+            else:
+                data_list = np.concatenate((data_list, temp_data), axis=0)
+
         pbar.update()
-    data_list, label_list = shuffle_dataset(data_list, label_list)
+
+    if not only_dict:
+        data_list, label_list = shuffle_dataset(data_list, label_list)
     print(f"[INFO] Participants skipped: {skipped_participants}")
     return np.array(data_list), np.array(label_list), new_dict
 
