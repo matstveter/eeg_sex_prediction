@@ -82,13 +82,15 @@ class DataGenerator(keras.utils.Sequence):
         return np.array(data_list), np.array(label_list)
 
 
-def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, use_conv2d=False):
+def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, use_conv2d=False, test=False):
     """
-    1. Creates three DataGenerators: train, val, test
-    2. Extracts the model shape based on the input data
-    3. Creates a test_dict containing labels and data for all subjects in the test seet
+    * Splits the data evenly among the classes
+    * Creates three DataGenerators: train, val, test
+    * Extracts the model shape based on the input data
+    * Creates a test_dict containing labels and data for all subjects in the test set
 
     Args:
+        test: if test mode is enabled, meaning that we only use a small part of the data for quicker testing
         data_dict: dictionary containing paths and labels
         time_dict: dictionary containing eeg time series specific information (srate, num_windows ...)
         batch_size: Batch size
@@ -107,6 +109,12 @@ def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, us
 
     # Creating a split
     train_id, val_id, test_id = create_split_from_dict(data_dict)
+    print(f"Train ID: {len(train_id)}, Val ID: {len(val_id)}, Test ID: {len(test_id)}")
+
+    if test:
+        train_id = train_id[0:10]
+        val_id = val_id[0:5]
+        test_id = test_id[0:5]
 
     training_generator = DataGenerator(list_IDs=train_id,
                                        data_dict=data_dict,
@@ -153,39 +161,38 @@ def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, us
                                                only_dict=True)
 
     print(f"Training Generator Length: {len(training_generator)}"
-          f"\nValidation Generator Length: {len(validation_generator)}"
-          f"\nTest Generator Length: {len(test_generator)}"
+          f"\t Validation Generator Length: {len(validation_generator)}"
+          f"\t Test Generator Length: {len(test_generator)}"
           f"\nInput Data Shape: {model_shape}"
-          f"\nTest Dict Length: {len(list(test_dict))}")
+          f"\t Test Dict Length: {len(list(test_dict))}")
 
     return training_generator, validation_generator, test_generator, test_dict, model_shape
 
 
-def create_split_from_dict(data_dict: dict):
+def create_split_from_dict(data_dict: dict, data_split=None):
     """
     Function that receives a dictionary and creates (depending on the predictions) a balanced train/test/val split
 
     data_dict = dictionary containing data
-    prediction_key = Which key from the dictionary should be predicted
-    split = how should the data be split into train, val, test
-    resample_data = How should the dataset be balanced, either balance through resampling or
-    through cut-off
+    data_split = None if no split is selected, then it will be done automatically according to the number of subjects
 
     Returns:
         train, test, val : list = Containing subject keys
     """
-    prediction_key = "Sex"
 
-    if len(list(data_dict.keys())) > 2000:
-        split = [0.7, 0.2, 0.1]
+    if data_split is None:
+        if len(list(data_dict.keys())) > 2000:
+            split = [0.7, 0.2, 0.1]
+        else:
+            split = [0.6, 0.2, 0.2]
     else:
-        split = [0.6, 0.2, 0.2]
+        split = data_split
 
     male = list()
     female = list()
 
     for k, v in data_dict.items():
-        if v[prediction_key] == 1:
+        if v["Sex"] == 1:
             female.append(k)
         else:
             male.append(k)
@@ -201,6 +208,7 @@ def create_split_from_dict(data_dict: dict):
             # extra_data = temp[len(male):]
 
     num_participants = len(male) + len(female)
+    print(f"Total number of subjects used: {num_participants}")
 
     num_train = int((split[0] * num_participants) / 2)
     num_val = int((split[1] * num_participants) / 2)

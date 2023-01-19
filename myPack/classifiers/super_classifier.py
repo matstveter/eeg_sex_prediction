@@ -191,6 +191,9 @@ class SUPERClassifier(abc.ABC):
         else:
             return y_pred, y_predicted
 
+    def __repr__(self):
+        return f"Model Name: {self._save_name}"
+
     @abc.abstractmethod
     def _build_model(self, monte_carlo=False):
         """ Creates the keras architect of an entire model, and returns the model

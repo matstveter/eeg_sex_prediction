@@ -131,14 +131,14 @@ def create_run_folder(path: str) -> Tuple:
     return run_path, fig_path, models_path
 
 
-def write_to_file(file_name_path: str, string: str, also_print=False) -> None:
+def write_to_file(file_name_path: str, message: str, also_print=False) -> None:
     """ Function which takes a filepath as input, and writes a string in that file, can also print the statement,
     given that the argument also_print is set to True. If the file_path_name is not the path to a actual file, an
     error message is printed, and the string is printed in terminal as well
 
     Args:
         file_name_path: path to file
-        string: message to be written in file and/or in terminal
+        message: message to be written in file and/or in terminal
         also_print: Should the string be printed in the terminal
 
     Returns:
@@ -146,14 +146,13 @@ def write_to_file(file_name_path: str, string: str, also_print=False) -> None:
     """
     if os.path.isfile(file_name_path):
         f = open(file_name_path, "a")
-        f.write(string + "\n")
+        f.write(message + "\n")
         f.close()
 
         if also_print:
-            print(string)
+            print(message)
     else:
         print(f"[ERROR] Path given is not a file {file_name_path}, printing the string and returns!")
-        print(string)
 
 
 def print_dataset(train_y: numpy.ndarray, val_y: numpy.ndarray, test_y: numpy.ndarray, num_train, num_val, num_test):
