@@ -96,7 +96,6 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str):
         # evaluate_uncertainty_per_subject(ensemble_predicted_probabilities=class_probabilites,
         #                                  mean_predictions=avg_ensemble_classes)
 
-        break
     # Printing #
     write_to_file(write_file_path, f"Ensemble per subject: {ensemble_subject_majority / len(list(test_dict.keys()))}",
                   also_print=True)
