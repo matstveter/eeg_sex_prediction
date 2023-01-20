@@ -1,6 +1,6 @@
 import numpy as np
 
-from myPack.eval.performance_evaluation import evaluate_majority_voting
+from myPack.eval.performance_evaluation import evaluate_ensembles, evaluate_majority_voting
 from myPack.classifiers.model_chooser import get_model
 from myPack.data.data_handler import get_all_data_and_generators
 from myPack.utils import plot_confidence_interval, write_to_file, save_to_pkl
@@ -45,6 +45,8 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
             write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
                                                            f"\nMajority Voting Acc: "
                                                            f"{eval_metrics['majority_voting_acc']}", also_print=True)
+            evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
+                               write_file_path=general_dict['write_file_path'])
             metrics_dictionary[model_object.save_name] = eval_metrics
             write_to_file(general_dict['write_file_path'], f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
                           also_print=True)

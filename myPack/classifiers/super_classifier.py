@@ -73,6 +73,14 @@ class SUPERClassifier(abc.ABC):
         return self._save_name
 
     @property
+    def batch_size(self):
+        return self._batch_size
+
+    @property
+    def logits(self):
+        return self._logits
+
+    @property
     def input_shape(self):
         return self._input_shape
 
