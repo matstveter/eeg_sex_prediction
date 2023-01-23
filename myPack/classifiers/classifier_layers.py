@@ -122,7 +122,8 @@ def conv_layer(input_to_conv: tuple, num_filters: Union[int, tuple], kernel_size
 
 
 def dense_layer(input_to_dense: tuple, neurons: Union[int, tuple], apply_batchnorm: bool = False,
-                apply_dropout: bool = True, dropout_rate: float = 0.5, monte_carlo: bool = False):
+                apply_dropout: bool = True, dropout_rate: float = 0.5, monte_carlo: bool = False,
+                kernel_init: str = "glorot_uniform"):
     """ Function creating 1 or n numbers of dense-layers, based on neurons' argument, if tuple, len(tuple) dense layers
     is returned. This function can also apply dropout inbetween the layers, and also capable of creating it monte_carlo
     dropout ready. Relu is always applied, after batch_norm if True, and before dropout if true-
@@ -148,7 +149,7 @@ def dense_layer(input_to_dense: tuple, neurons: Union[int, tuple], apply_batchno
 
     # If neurons is a single int or a tuple of length 1, return 1 dense layer, with possible batch_norm and dropout
     if isinstance(neurons, int) or (isinstance(neurons, tuple) and len(neurons) == 1):
-        x = Dense(neurons)(input_to_dense)
+        x = Dense(neurons, kernel_initializer=kernel_init)(input_to_dense)
         if apply_batchnorm:
             x = BatchNormalization()(x)
         x = keras.layers.ReLU()(x)
