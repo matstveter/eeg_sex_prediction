@@ -45,8 +45,9 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
             write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
                                                            f"\nMajority Voting Acc: "
                                                            f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            # evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
-            #                    write_file_path=general_dict['write_file_path'])
+            evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
+                               write_file_path=general_dict['write_file_path'],
+                               figure_path=general_dict['fig_path'])
             metrics_dictionary[model_object.save_name] = eval_metrics
             write_to_file(general_dict['write_file_path'], f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
                           also_print=True)

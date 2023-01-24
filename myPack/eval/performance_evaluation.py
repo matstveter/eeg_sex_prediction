@@ -5,7 +5,7 @@ import tensorflow as tf
 import keras.backend
 from sklearn.metrics import accuracy_score
 
-from myPack.utils import write_to_file
+from myPack.utils import create_folder, write_to_file
 
 
 def evaluate_majority_voting(model_object, test_dict: dict):
@@ -41,6 +41,8 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
         ensemble_sample_majority
         ensemble_subject_majority
     """
+    figure_path = create_folder(path=figure_path, name="uncertainty_plot")
+
     num_monte_carlo = 50
     model_ensemble = False
 
@@ -102,11 +104,9 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
 
         uncertainty_object = UncertaintyPerSubject(sub_id=subject,
                                                    ensemble_predicted_probabilities=class_probabilities,
-                                                   mean_predictions=avg_ensemble_classes,
                                                    figure_path=figure_path,
                                                    ensemble_sample_correct=en_sample,
                                                    ensemble_subject_correct=en_subject)
-
         pbar.update()
     # Printing #
     write_to_file(write_file_path, f"Ensemble per subject: {ensemble_subject_majority / len(list(test_dict.keys()))}",
@@ -156,12 +156,12 @@ def calculate_uncertainty_metrics(sigmoid_predictions):
 
 class UncertaintyPerSubject:
 
-    def __init__(self, sub_id, ensemble_predicted_probabilities: list, mean_predictions, figure_path: str,
+    def __init__(self, sub_id, ensemble_predicted_probabilities: list, figure_path: str,
                  ensemble_sample_correct: float, ensemble_subject_correct: float):
         self._sub_id = sub_id
 
-        self._mean_predictions = mean_predictions
         self._ensemble_predicted_probabilities = ensemble_predicted_probabilities
+        self._predicted_classes = keras.backend.round(np.mean(ensemble_predicted_probabilities, axis=0))
         self._variance, self._predictive_entropy = calculate_uncertainty_metrics(ensemble_predicted_probabilities)
 
         self._category_threshold = [np.array([1.0, 0.0]), np.array([0.95, 0.05]), np.array([0.9, 0.1]),
@@ -169,13 +169,15 @@ class UncertaintyPerSubject:
                                     np.array([0.5, 0.5])]
         self._entropy_thresholds = [get_predictive_entropy(probs=c_prob) for c_prob in self._category_threshold]
         self._figure_path = figure_path
-
-        self._avg_variance = np.mean(self._variance)
-        self._avg_pred_ent = np.mean(self._predictive_entropy)
+        self._class_distribution = None
+        self._get_class_distribution()
 
         # Calculated outside the class
         self._ensemble_sample_correct = ensemble_sample_correct
         self._ensemble_subject_correct = ensemble_subject_correct
+
+        self._predictions_barplot()
+        self._get_window_prediction_distribution()
 
     # ----------------#
     # Properties      #
@@ -191,6 +193,11 @@ class UncertaintyPerSubject:
     # End Properties  #
     # ----------------#
 
+    def _get_class_distribution(self):
+        prob_pos = np.copy(np.mean(self._ensemble_predicted_probabilities, axis=0))
+        prob_neg = 1 - prob_pos
+        self._class_distribution = np.column_stack((prob_neg, prob_pos))
+
     def _predictions_barplot(self):
         """
         Calculates the number of predicted classes from the average of the ensemble, and creates a barplot showing
@@ -199,14 +206,16 @@ class UncertaintyPerSubject:
         Returns:
             classes: list of number of windows predicted as class0 or class1
         """
-        occur = np.unique(self._mean_predictions, return_counts=True)
-        classes = occur[1]
+        female = list(self._predicted_classes).count(1)
+        male = list(self._predicted_classes).count(0)
+        classes = [male, female]
         bars = ['Male', 'Female']
-        plt.bar(bars, classes)
+        plt.bar(bars, classes, color=['#1f77b4', '#ff7f0e'])
         plt.xlabel("Classes")
         plt.ylabel("Num windows")
         plt.title("Predictions")
-        plt.savefig(self._figure_path + "_class_predictions.png")
+        plt.savefig(self._figure_path + self._sub_id + "_class_predictions.png")
+        plt.close()
         return classes
 
     def _get_window_prediction_distribution(self):
@@ -220,20 +229,43 @@ class UncertaintyPerSubject:
         """
         entropy_ranges = []
         entropy_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
+        male_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
+        female_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
         barpl_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
         bar_names = ['Very Certain', 'Certain', 'Moderately Certain', 'Uncertain', 'Very Uncertain', 'Guessing']
 
-        for p_e in self._predictive_entropy:
-            for i in range(len(self._entropy_thresholds) - 1):
-                if self._entropy_thresholds[i] <= p_e < self._entropy_thresholds[i + 1]:
-                    entropy_ranges.append((self._entropy_thresholds[i], self._entropy_thresholds[i + 1]))
-                    entropy_counts[i] += 1
+        for i in range(len(self._predictive_entropy)):
+            for j in range(len(self._entropy_thresholds) - 1):
+                if self._entropy_thresholds[j] <= self._predictive_entropy[i] < self._entropy_thresholds[j + 1]:
+                    entropy_ranges.append((self._entropy_thresholds[j], self._entropy_thresholds[j + 1]))
+                    entropy_counts[j] += 1
+
+                    if self._predicted_classes[i] == 1:
+                        female_counts[j] += 1
+                    else:
+                        male_counts[j] += 1
                     break
+
+        assert sum(male_counts) + sum(female_counts) == sum(entropy_counts), "Missing data, number of female + male " \
+                                                                             "does not add up!"
+        X_axis = np.arange(len(bar_names))
+
+        plt.bar(X_axis - 0.2, female_counts, 0.4, label="Female")
+        plt.bar(X_axis + 0.2, male_counts, 0.4, label="Male")
+        plt.xticks(X_axis, bar_names)
+        plt.title("Certainty Distribution")
+        plt.xlabel("Degree of certain")
+        plt.ylabel("Num windows")
+        plt.legend(loc="upper left")
+        plt.savefig(self._figure_path + self._sub_id + "_certain_dist.png")
+        plt.close()
+
         plt.bar(bar_names, entropy_counts, color=barpl_colors)
         plt.xlabel("Degree of certain")
         plt.ylabel("Num windows")
         plt.title("Certainty Distribution")
-        plt.savefig(self._figure_path + "certain_dit.png")
+        plt.savefig(self._figure_path + self._sub_id + "_certain_all.png")
+        plt.close()
 
         return entropy_ranges, entropy_counts
 

@@ -84,6 +84,7 @@ def setup_run():
 
     general_dict['write_file_path'] = general_dict['save_path'] + "metrics_and_info.txt"
     f = open(general_dict['write_file_path'], "w")
+    f.write(f"Conf: {arg.conf}\nDataset: {arg.dict}\n")
     f.close()
 
     return data_dict, model_dict, hyper_dict, time_dict, general_dict
