@@ -61,6 +61,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
     elif general_dict['experiment_type'] == "ensemble_models":
         models = model_dict['model_name'].split(",")
         model_list = list()
+        histories = list()
         for m in models:
             write_to_file(general_dict['write_file_path'], f"---- Starting Model {m}/ {models} ----",
                           also_print=True)
@@ -74,6 +75,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                              plot_test_acc=True,
                                              save_raw=True)
 
+            histories.append(train_history)
             eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
             eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
                                                                            test_dict=test_set_dictionary)
