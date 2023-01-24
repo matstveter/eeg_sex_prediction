@@ -214,6 +214,7 @@ class UncertaintyPerSubject:
         plt.xlabel("Classes")
         plt.ylabel("Num windows")
         plt.title("Predictions")
+        plt.tight_layout()
         plt.savefig(self._figure_path + self._sub_id + "_class_predictions.png")
         plt.close()
         return classes
@@ -232,7 +233,7 @@ class UncertaintyPerSubject:
         male_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
         female_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
         barpl_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
-        bar_names = ['Very Certain', 'Certain', 'Moderately Certain', 'Uncertain', 'Very Uncertain', 'Guessing']
+        bar_names = ['Very \nCertain', 'Certain', 'Moderat \nCertain', 'Uncertain', 'Very \nUncertain', 'Guessing']
 
         for i in range(len(self._predictive_entropy)):
             for j in range(len(self._entropy_thresholds) - 1):
@@ -257,6 +258,7 @@ class UncertaintyPerSubject:
         plt.xlabel("Degree of certain")
         plt.ylabel("Num windows")
         plt.legend(loc="upper left")
+        plt.tight_layout()
         plt.savefig(self._figure_path + self._sub_id + "_certain_dist.png")
         plt.close()
 
@@ -264,6 +266,7 @@ class UncertaintyPerSubject:
         plt.xlabel("Degree of certain")
         plt.ylabel("Num windows")
         plt.title("Certainty Distribution")
+        plt.tight_layout()
         plt.savefig(self._figure_path + self._sub_id + "_certain_all.png")
         plt.close()
 
