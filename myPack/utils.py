@@ -16,6 +16,23 @@ sns.set_theme()
 meaning_of_life = 42  # Seeding the random function
 
 
+def get_conf_interval(metrics, alpha=0.95):
+    """
+    Calculates the conf interval from a list of metrics
+    Args:
+        metrics: acc, auc
+        alpha: 0.95 for 95% confidence interval
+
+    Returns:
+        mean, lower, upper
+    """
+    mean_metric = np.mean(metrics)
+    std_error = sem(metrics)
+
+    confidence_interval = t.interval(alpha=alpha, df=len(metrics)-1, loc=mean_metric, scale=std_error)
+
+    return mean_metric, confidence_interval[0], confidence_interval[1]
+
 def plot_confidence_interval(histories: list, key: str, save_name: str, confidence: float = 0.95) -> None:
     """
     Plots confidence intervals for "key" over multiple runs

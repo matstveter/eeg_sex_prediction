@@ -41,7 +41,6 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
         ensemble_sample_majority
         ensemble_subject_majority
     """
-    figure_path = create_folder(path=figure_path, name="uncertainty_plot")
 
     num_monte_carlo = 50
     model_ensemble = False
@@ -54,6 +53,9 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
 
     pbar = enlighten.Counter(total=len(list(test_dict.keys())), desc="Performance and Uncertainty Evaluation",
                              unit="Participants")
+
+    window_eval_dict = dict()
+
     for subject, value in test_dict.items():
         data_x = np.array(value['data'])
         data_y = np.array([value['label']] * data_x.shape[0])
@@ -91,22 +93,19 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
         per_subject_ensemble_accuracy = np.mean(accs, axis=0)
 
         # If the accuracy is more than 0.5 the subject is predicted as correctly
-        en_subject = 0
         if per_subject_ensemble_accuracy > 0.5:
             ensemble_subject_majority += 1
-            en_subject = 1
 
         # If the accuracy is more than 0.5 the subject is predicted as correctly
-        en_sample = 0
         if per_sample_ensemble_accuracy > 0.5:
             ensemble_sample_majority += 1
-            en_sample = 1
 
-        uncertainty_object = UncertaintyPerSubject(sub_id=subject,
-                                                   ensemble_predicted_probabilities=class_probabilities,
-                                                   figure_path=figure_path,
-                                                   ensemble_sample_correct=en_sample,
-                                                   ensemble_subject_correct=en_subject)
+        t_dict, keys = evaluate_effective_windows(sigmoid_ensemble_predictions=class_probabilities,
+                                                  prediction=avg_ensemble_classes, label_sub=value['label'])
+
+        for k in keys:
+            window_eval_dict[k] += t_dict[k]
+
         pbar.update()
     # Printing #
     write_to_file(write_file_path, f"Ensemble per subject: {ensemble_subject_majority / len(list(test_dict.keys()))}",
@@ -114,7 +113,67 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
     write_to_file(write_file_path, f"Ensemble per sample: {ensemble_sample_majority / len(list(test_dict.keys()))}",
                   also_print=True)
 
-    return ensemble_subject_majority/len(list(test_dict.keys())), ensemble_sample_majority/len(list(test_dict.keys()))
+    plot_window_selection_performance(window_dict=window_eval_dict, total_number_subjects=len(list(test_dict.keys())),
+                                      figure_path=figure_path)
+
+    return ensemble_subject_majority / len(list(test_dict.keys())), ensemble_sample_majority / len(
+        list(test_dict.keys()))
+
+
+def plot_window_selection_performance(window_dict: dict, total_number_subjects, figure_path):
+    for k, v in window_dict.items():
+        window_dict[k] = (v / total_number_subjects) * 100
+
+    plt.plot(list(window_dict.keys()), list(window_dict.values()), label="Removed Windows")
+    plt.title("Evaluation of removing uncertain windows")
+    plt.xlabel("Percentage Kept Windows")
+    plt.ylabel("Accuracy on test set")
+    plt.savefig(figure_path + "_eff_window.png")
+    plt.close()
+
+
+def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_sub: int) -> [dict, list]:
+    """
+    Receives a sigmoid ensemble prediction list [n_models, num_windows, 1], calculate the varience of each prediction
+    over the samples. This will give a indication of which of the windows do the ensemble have different opinion about.
+    Sort the ensemble prediction list according to this uncertainty variance list.
+
+    Loop through and remove different amounts of windows, starting with removing 10% of the most uncertain windows.
+    Continuously evaluate the remaining value against the label, and store 1 in a dict if the majority predictions of
+    the remaining windows were correct, else 0.
+
+
+    Args:
+        sigmoid_ensemble_predictions: [num_ensemble_models, windows, 1] sigmoid output from the ensemble
+        prediction: Binary list created from the sigmoid output
+        label_sub: 1 if female, 0 if male.
+
+    Returns:
+        dictionary of the results from each of the amount of kept windows
+    """
+    # Calculate the simplest metrics for uncertainty -> variance across the ensemble on the samples
+    keep_percentage_windows = [1.0, 0.9, 0.75, 0.5, 0.25, 0.1]
+    uncertain_samples = np.var(sigmoid_ensemble_predictions, axis=0)
+
+    # Sort the prediction argument according to the uncertainty estimates, lowest on pred[0] and highest pred[-1]
+    uncertain_samples, prediction = zip(*sorted(zip(uncertain_samples, prediction), key=lambda x: x[0]))
+
+    res_dict = dict()
+
+    # Loop through the list of the percentage of windows to be removed and eval the remaining windows and store in dict
+    for k_percentage in keep_percentage_windows:
+        temp_pred = prediction[0: int(len(prediction) * k_percentage)]
+        lab = [label_sub] * len(temp_pred)
+
+        acc = accuracy_score(y_true=lab, y_pred=temp_pred)
+
+        # If accuracy is above 0.5, meaning that more than half the samples were predicted correctly, save 1
+        if acc > 0.5:
+            res_dict[k_percentage] = 1
+        else:
+            res_dict[k_percentage] = 0
+
+    return res_dict, keep_percentage_windows
 
 
 # SUPPORTING FUNCTIONS FOR THE MAIN FUNCTION ABOVE #
@@ -189,6 +248,7 @@ class UncertaintyPerSubject:
     @property
     def predictive_entropy(self):
         return self._predictive_entropy
+
     # ----------------#
     # End Properties  #
     # ----------------#
@@ -210,7 +270,7 @@ class UncertaintyPerSubject:
         male = list(self._predicted_classes).count(0)
         classes = [male, female]
         bars = ['Male', 'Female']
-        plt.bar(bars, classes, color=['#1f77b4', '#ff7f0e'])
+        plt.bar(bars, classes, color=['#ff7f0e', '#1f77b4'])
         plt.xlabel("Classes")
         plt.ylabel("Num windows")
         plt.title("Predictions")
@@ -271,4 +331,3 @@ class UncertaintyPerSubject:
         plt.close()
 
         return entropy_ranges, entropy_counts
-

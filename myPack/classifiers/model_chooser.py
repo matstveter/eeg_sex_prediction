@@ -1,5 +1,5 @@
-from myPack.classifiers.eeg_models import EEGnet_SSVEP2, ShallowNet, DeepConvNet, EEGnet, EEGnet_SSVEP
-from myPack.classifiers.inception_time import InceptionTime
+from myPack.classifiers.eeg_models import ShallowNet, DeepConvNet, EEGnet, EEGnet_SSVEP
+from myPack.classifiers.inception_time import InceptionTime, InceptionTime2
 from myPack.classifiers.time_classifiers import ExperimentalClassifier
 
 
@@ -18,18 +18,25 @@ def get_model(which_model: str, model_dict: dict, hyper_dict: dict, general_dict
 
     if which_model == "inception":
         model_object = InceptionTime(**sim_args, **kwargs)
+
     elif which_model == "shallowNet":
         model_object = ShallowNet(**sim_args, **kwargs)
+
     elif which_model == "deepConvNet":
         model_object = DeepConvNet(**sim_args, **kwargs)
+
     elif which_model == "eegNet":
         model_object = EEGnet(**sim_args, **kwargs)
+
     elif which_model == "eegNetS":
         model_object = EEGnet_SSVEP(**sim_args, **kwargs)
-    elif which_model == "eegNetS2":
-        model_object = EEGnet_SSVEP2(**sim_args, **kwargs)
+
+    elif which_model == "inception2":
+        model_object = InceptionTime2(**sim_args, **kwargs)
+
     elif which_model == "experimental":
         model_object = ExperimentalClassifier(**sim_args, **kwargs)
+
     else:
         raise ValueError(f"Can not recognize model name: {which_model}")
 
