@@ -54,7 +54,7 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
     pbar = enlighten.Counter(total=len(list(test_dict.keys())), desc="Performance and Uncertainty Evaluation",
                              unit="Participants")
 
-    window_eval_dict = dict()
+    window_eval_dict = {'1.0': 0, '0.9': 0, '0.75': 0, '0.5': 0, '0.25': 0, '0.1': 0}
 
     for subject, value in test_dict.items():
         data_x = np.array(value['data'])
@@ -100,24 +100,25 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
         if per_sample_ensemble_accuracy > 0.5:
             ensemble_sample_majority += 1
 
-        t_dict, keys = evaluate_effective_windows(sigmoid_ensemble_predictions=class_probabilities,
-                                                  prediction=avg_ensemble_classes, label_sub=value['label'])
+        t_dict= evaluate_effective_windows(sigmoid_ensemble_predictions=class_probabilities,
+                                           prediction=avg_ensemble_classes, label_sub=value['label'],
+                                           keys=list(window_eval_dict.keys()))
 
-        for k in keys:
+        for k in window_eval_dict.keys():
             window_eval_dict[k] += t_dict[k]
 
         pbar.update()
     # Printing #
-    write_to_file(write_file_path, f"Ensemble per subject: {ensemble_subject_majority / len(list(test_dict.keys()))}",
-                  also_print=True)
-    write_to_file(write_file_path, f"Ensemble per sample: {ensemble_sample_majority / len(list(test_dict.keys()))}",
-                  also_print=True)
+    per_subject_acc = ensemble_subject_majority / len(list(test_dict.keys()))
+    per_sample_acc = ensemble_sample_majority / len(list(test_dict.keys()))
+
+    write_to_file(write_file_path, f"Ensemble per-subject: {per_subject_acc}", also_print=True)
+    write_to_file(write_file_path, f"Ensemble per-sample: {per_sample_acc}", also_print=True)
 
     plot_window_selection_performance(window_dict=window_eval_dict, total_number_subjects=len(list(test_dict.keys())),
                                       figure_path=figure_path)
 
-    return ensemble_subject_majority / len(list(test_dict.keys())), ensemble_sample_majority / len(
-        list(test_dict.keys()))
+    return per_subject_acc, per_sample_acc
 
 
 def plot_window_selection_performance(window_dict: dict, total_number_subjects, figure_path):
@@ -132,7 +133,8 @@ def plot_window_selection_performance(window_dict: dict, total_number_subjects, 
     plt.close()
 
 
-def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_sub: int) -> [dict, list]:
+def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_sub: int,
+                               keys) -> [dict, list]:
     """
     Receives a sigmoid ensemble prediction list [n_models, num_windows, 1], calculate the varience of each prediction
     over the samples. This will give a indication of which of the windows do the ensemble have different opinion about.
@@ -152,10 +154,10 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
         dictionary of the results from each of the amount of kept windows
     """
     # Calculate the simplest metrics for uncertainty -> variance across the ensemble on the samples
-    keep_percentage_windows = [1.0, 0.9, 0.75, 0.5, 0.25, 0.1]
+    keep_percentage_windows = [float(i) for i in keys]
     uncertain_samples = np.var(sigmoid_ensemble_predictions, axis=0)
 
-    # Sort the prediction argument according to the uncertainty estimates, lowest on pred[0] and highest pred[-1]
+    # Sort the prediction argument according to the uncertainty estimates, the lowest on pred[0] and highest pred[-1]
     uncertain_samples, prediction = zip(*sorted(zip(uncertain_samples, prediction), key=lambda x: x[0]))
 
     res_dict = dict()
@@ -169,11 +171,11 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
 
         # If accuracy is above 0.5, meaning that more than half the samples were predicted correctly, save 1
         if acc > 0.5:
-            res_dict[k_percentage] = 1
+            res_dict[str(k_percentage)] = 1
         else:
-            res_dict[k_percentage] = 0
+            res_dict[str(k_percentage)] = 0
 
-    return res_dict, keep_percentage_windows
+    return res_dict
 
 
 # SUPPORTING FUNCTIONS FOR THE MAIN FUNCTION ABOVE #

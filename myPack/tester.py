@@ -45,7 +45,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
             write_to_file(general_dict['write_file_path'], f"---- Ending Depth {d}/ {depths} ----",
                           also_print=True)
     elif general_dict['experiment_type'] == "dense":
-        denselayers = (32, 64, (64, 16), (32, 8), (16, 4))
+        denselayers = (None, 8, 32, 64, 128)
         for d in denselayers:
             write_to_file(general_dict['write_file_path'], f"---- Starting Dense {d}/ {denselayers} ----",
                           also_print=True)
@@ -53,8 +53,9 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                      model_dict=model_dict,
                                      hyper_dict=hyper_dict,
                                      general_dict=general_dict,
-                                     model_name=model_dict['model_name'] + f"_depth_{d}",
-                                     add_dense=d)
+                                     model_name=model_dict['model_name'] + f"_dense_{d}",
+                                     add_dense=d,
+                                     depth=4)
             _ = model_object.fit(train_generator=train_generator,
                                  validation_generator=validation_generator,
                                  plot_test_acc=True,
@@ -77,23 +78,27 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
         for m in models:
             write_to_file(general_dict['write_file_path'], f"---- Starting Model {m}/ {models} ----",
                           also_print=True)
-            model_object = get_model(which_model=m,
-                                     model_dict=model_dict,
-                                     hyper_dict=hyper_dict,
-                                     general_dict=general_dict,
-                                     model_name=m)
-            _ = model_object.fit(train_generator=train_generator,
-                                 validation_generator=validation_generator,
-                                 plot_test_acc=True,
-                                 save_raw=False)
 
-            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
-            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
-                                                                           test_dict=test_set_dictionary)
+            for i in range(3):
+                write_to_file(general_dict['write_file_path'], f"Staring model {i+1 / 3}")
+                model_object = get_model(which_model=m,
+                                         model_dict=model_dict,
+                                         hyper_dict=hyper_dict,
+                                         general_dict=general_dict,
+                                         model_name=m)
+                _ = model_object.fit(train_generator=train_generator,
+                                     validation_generator=validation_generator,
+                                     plot_test_acc=True,
+                                     save_raw=False)
 
-            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-                                                           f"\nMajority Voting Acc: "
-                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
+                eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+                eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                               test_dict=test_set_dictionary)
+
+                write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                               f"\nMajority Voting Acc: "
+                                                               f"{eval_metrics['majority_voting_acc']}", also_print=True)
+            write_to_file(general_dict['write_file_path'], f"Ending model {i + 1 / 3}")
             write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
                           also_print=True)
 

@@ -27,11 +27,12 @@ def get_conf_interval(metrics, alpha=0.95):
         mean, lower, upper
     """
     mean_metric = np.mean(metrics)
-    std_error = sem(metrics)
+    std_error = sem(metrics, nan_policy="omit")
 
-    confidence_interval = t.interval(alpha=alpha, df=len(metrics)-1, loc=mean_metric, scale=std_error)
+    confidence_interval = t.interval(alpha=alpha, df=len(metrics) - 1, loc=mean_metric, scale=std_error)
 
     return mean_metric, confidence_interval[0], confidence_interval[1]
+
 
 def plot_confidence_interval(histories: list, key: str, save_name: str, confidence: float = 0.95) -> None:
     """
@@ -61,8 +62,8 @@ def plot_confidence_interval(histories: list, key: str, save_name: str, confiden
     train = [np.array(history.history[key]) for history in histories]
     val = [np.array(history.history["val_" + key]) for history in histories]
 
-    n1, s1, e1,  m1 = _plot_conf(train)
-    n2, s2, e2,  m2 = _plot_conf(val)
+    n1, s1, e1, m1 = _plot_conf(train)
+    n2, s2, e2, m2 = _plot_conf(val)
 
     plt.plot(m1, color="darkorange")
     plt.plot(m2, color="blue")
@@ -80,7 +81,6 @@ def plot_confidence_interval(histories: list, key: str, save_name: str, confiden
         pass
     else:
         plt.ylim(0.0, 1.0)
-    plt.show()
     plt.savefig(save_name + key + "_conf_plot.png")
     plt.close()
 

@@ -59,7 +59,7 @@ class InceptionTime2(SUPERClassifier):
         self._depth = 4
         self._nb_filters = nb_filters
         self._kernel_sizes = kernel_sizes
-        self._dense_layer = 32
+        self._dense_layer = 8
 
         super().__init__(input_shape=input_shape, output_shape=output_shape, save_path=save_path, fig_path=fig_path,
                          save_name=save_name, logits=logits, batch_size=batch_size, epochs=epochs,

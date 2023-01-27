@@ -17,6 +17,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
     write_to_file(general_dict['write_file_path'], message=f"**** Starting Experiment: "
                                                            f"{general_dict['experiment_type']} ****"
                                                            f"\nModel(s): {model_dict['model_name']}", also_print=False)
+    num_ensembles = 5
 
     if general_dict['experiment_type'] == "single_model":
         # Depending on the model that is running, this can adjust the models "extra" parameters
@@ -35,7 +36,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                      model_dict=model_dict,
                                      hyper_dict=hyper_dict,
                                      general_dict=general_dict,
-                                     model_name=model_dict['model_name'] + "_" + str(i))
+                                     model_name=model_dict['model_name'] + "_" + str(i), depth=4)
             train_hist = model_object.fit(train_generator=train_generator,
                                           validation_generator=validation_generator,
                                           plot_test_acc=True,
@@ -49,9 +50,12 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                                            f"\nMajority Voting Acc: "
                                                            f"{eval_metrics['majority_voting_acc']}", also_print=True)
             if model_dict['apply_mc']:
-                evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
-                                   write_file_path=general_dict['write_file_path'],
-                                   figure_path=general_dict['fig_path'] + model_dict['model_name'] + "_" + str(i))
+                per_sub, per_samp = evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
+                                                       write_file_path=general_dict['write_file_path'],
+                                                       figure_path=general_dict['fig_path'] + model_dict[
+                                                           'model_name'] + "_" + str(i))
+                eval_metrics['per_subject_mc'] = per_sub
+                eval_metrics['per_sample_mc'] = per_samp
             metrics_dictionary[model_object.save_name] = eval_metrics
 
             accs.append(eval_metrics['accuracy'])
@@ -61,7 +65,7 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                           also_print=True)
 
         # RUN FINISHED -> SAVING STUFF #
-        write_to_file(general_dict['write_file_path'],"Confidence intervals for all runs",
+        write_to_file(general_dict['write_file_path'], "Confidence intervals for all runs",
                       also_print=False)
         write_to_file(general_dict['write_file_path'], f"Accuracy (mean, lower, upper): {get_conf_interval(accs)}",
                       also_print=False)
@@ -77,71 +81,107 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
     elif general_dict['experiment_type'] == "ensemble_models":
         models = model_dict['model_name'].split(",")
-        model_list = list()
-        histories = list()
-        for m in models:
-            write_to_file(general_dict['write_file_path'], f"---- Starting Model {m}/ {models} ----",
-                          also_print=True)
-            model_object = get_model(which_model=m,
-                                     model_dict=model_dict,
-                                     hyper_dict=hyper_dict,
-                                     general_dict=general_dict,
-                                     model_name=m)
-            train_history = model_object.fit(train_generator=train_generator,
-                                             validation_generator=validation_generator,
-                                             plot_test_acc=True,
-                                             save_raw=True)
 
-            histories.append(train_history)
-            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
-            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
-                                                                           test_dict=test_set_dictionary)
+        ensemble_performance_subject = list()
+        ensemble_performance_sample = list()
 
-            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-                                                           f"\nMajority Voting Acc: "
-                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            model_list.append(model_object)
-            write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
-                          also_print=True)
+        for e in range(num_ensembles):
+            write_to_file(general_dict['write_file_path'], f"Starting ensemble {e + 1} / {num_ensembles}")
+            model_list = list()
+            for m in models:
+                write_to_file(general_dict['write_file_path'], f"---- Starting Model {m}/ {models} ----",
+                              also_print=True)
+                model_object = get_model(which_model=m,
+                                         model_dict=model_dict,
+                                         hyper_dict=hyper_dict,
+                                         general_dict=general_dict,
+                                         model_name=m)
+                model_object.fit(train_generator=train_generator,
+                                 validation_generator=validation_generator,
+                                 plot_test_acc=True,
+                                 save_raw=True)
+
+                eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+                eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                               test_dict=test_set_dictionary)
+
+                write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                               f"\nMajority Voting Acc: "
+                                                               f"{eval_metrics['majority_voting_acc']}",
+                              also_print=True)
+                model_list.append(model_object)
+                write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
+                              also_print=True)
+            sub_perf, samp_per = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
+                                                    write_file_path=general_dict['write_file_path'],
+                                                    figure_path=general_dict['fig_path'] + "ensemble_" + str(e))
+            ensemble_performance_subject.append(sub_perf)
+            ensemble_performance_sample.append(samp_per)
+
+            write_to_file(general_dict['write_file_path'], f"Ending ensemble {e + 1} / {num_ensembles}")
+
+        # Evaluate the list of uncertainties from evaluate_ensemble method??
+        write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles",
+                      also_print=False)
+        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                       f"{get_conf_interval(ensemble_performance_subject)}")
+        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                       f"{get_conf_interval(ensemble_performance_subject)}")
 
     elif general_dict['experiment_type'] == "ensemble_weights":
         kernel_init = "random_uniform"
         # kernel_init = "random_normal"
 
-        model_list = list()
-        histories = list()
+        ensemble_performance_subject = list()
+        ensemble_performance_sample = list()
 
-        for i in range(general_dict['num_models']):
-            write_to_file(general_dict['write_file_path'],
-                          f"---- Starting Run {i + 1}/{general_dict['num_models']} ----",
-                          also_print=True)
+        for e in range(num_ensembles):
+            write_to_file(general_dict['write_file_path'], f"Starting ensemble {e + 1} / {num_ensembles}")
+            model_list = list()
+            for i in range(general_dict['num_models']):
+                write_to_file(general_dict['write_file_path'],
+                              f"---- Starting Run {i + 1}/{general_dict['num_models']} ----",
+                              also_print=True)
 
-            model_object = get_model(which_model=model_dict['model_name'],
-                                     model_dict=model_dict,
-                                     hyper_dict=hyper_dict,
-                                     general_dict=general_dict,
-                                     model_name=model_dict['model_name'] + "_" + str(i),
-                                     kernel_init=kernel_init)
+                model_object = get_model(which_model=model_dict['model_name'],
+                                         model_dict=model_dict,
+                                         hyper_dict=hyper_dict,
+                                         general_dict=general_dict,
+                                         model_name=model_dict['model_name'] + "_" + str(i),
+                                         kernel_init=kernel_init)
 
-            train_hist = model_object.fit(train_generator=train_generator,
-                                          validation_generator=validation_generator,
-                                          plot_test_acc=True,
-                                          save_raw=True)
-            histories.append(train_hist)
-            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
-            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
-                                                                           test_dict=test_set_dictionary)
+                model_object.fit(train_generator=train_generator,
+                                 validation_generator=validation_generator,
+                                 plot_test_acc=True,
+                                 save_raw=True)
+                eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+                eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                               test_dict=test_set_dictionary)
 
-            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-                                                           f"\nMajority Voting Acc: "
-                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            model_list.append(model_object)
+                write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                               f"\nMajority Voting Acc: "
+                                                               f"{eval_metrics['majority_voting_acc']}",
+                              also_print=True)
+                model_list.append(model_object)
+                write_to_file(general_dict['write_file_path'],
+                              f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
+                              also_print=True)
 
-        evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
-                           write_file_path=general_dict['write_file_path'],
-                           figure_path=general_dict['fig_path'])
+            sub_perf, samp_per = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
+                                                    write_file_path=general_dict['write_file_path'],
+                                                    figure_path=general_dict['fig_path'] + "ensemble_" + str(e))
+            ensemble_performance_subject.append(sub_perf)
+            ensemble_performance_sample.append(samp_per)
+
+            write_to_file(general_dict['write_file_path'], f"Ending ensemble {e + 1} / {num_ensembles}")
 
         # Evaluate the list of uncertainties from evaluate_ensemble method??
+        write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles",
+                      also_print=False)
+        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                       f"{get_conf_interval(ensemble_performance_subject)}")
+        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                       f"{get_conf_interval(ensemble_performance_subject)}")
 
     elif general_dict['experiment_type'] == "frequency_ensemble":
 
@@ -205,7 +245,8 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                 if eval_metrics['accuracy'] > current_best_acc:
                     ensemble_models[i] = model_object
                     current_best_acc = eval_metrics['accuracy']
-                    write_to_file(general_dict['write_file_path'], f"New Best Models for {d}, run: {n}",also_print=False)
+                    write_to_file(general_dict['write_file_path'], f"New Best Models for {d}, run: {n}",
+                                  also_print=False)
 
                 write_to_file(general_dict['write_file_path'],
                               f"---- Ending Run {n + 1}/{general_dict['num_models']} ----",

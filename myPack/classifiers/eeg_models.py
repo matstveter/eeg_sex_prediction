@@ -12,7 +12,7 @@ from myPack.classifiers.super_classifier import SUPERClassifier
 assume_128 = 4
 assume_256 = 2
 
-add_to_kernel_length=False
+add_to_kernel_length = True
 
 
 class EEGnet(SUPERClassifier):

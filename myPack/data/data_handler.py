@@ -182,7 +182,7 @@ def create_split_from_dict(data_dict: dict, data_split=None):
 
     if data_split is None:
         if len(list(data_dict.keys())) > 2000:
-            split = [0.7, 0.2, 0.1]
+            split = [0.6, 0.2, 0.2]
         else:
             split = [0.6, 0.2, 0.2]
     else:
