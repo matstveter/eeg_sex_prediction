@@ -169,12 +169,13 @@ def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, us
     return training_generator, validation_generator, test_generator, test_dict, model_shape
 
 
-def create_split_from_dict(data_dict: dict, data_split=None):
+def create_split_from_dict(data_dict: dict, data_split=None, k_fold=False):
     """
     Function that receives a dictionary and creates (depending on the predictions) a balanced train/test/val split
 
     data_dict = dictionary containing data
     data_split = None if no split is selected, then it will be done automatically according to the number of subjects
+    k_fold = if this function should only return the sub id for females and males respectively
 
     Returns:
         train, test, val : list = Containing subject keys
@@ -206,6 +207,12 @@ def create_split_from_dict(data_dict: dict, data_split=None):
             # temp = female
             female = female[0:len(male)]
             # extra_data = temp[len(male):]
+
+    if k_fold:
+        random.seed(meaning_of_life)
+        random.shuffle(female)
+        random.shuffle(male)
+        return female, male
 
     num_participants = len(male) + len(female)
     print(f"Total number of subjects used: {num_participants}")
@@ -300,3 +307,107 @@ def load_time_series_dataset(participant_list, data_dict, datapoints_per_window,
         data_list, label_list = shuffle_two_arrays(data_list, label_list)
     print(f"[INFO] Participants skipped: {skipped_participants}")
     return np.array(data_list), np.array(label_list), new_dict
+
+
+def k_fold_generators(data_dict: dict, time_dict: dict, num_folds, batch_size, use_conv2d=False, test=False):
+    """ Split the data into num-folds and creates a training and validation generator list containing pairs.
+
+    Args:
+        data_dict: all data
+        time_dict: hyperparam for time splits
+        num_folds: number of k-folds
+        batch_size: batch size
+        use_conv2d: use convolutional 2D
+        test: testing or not
+
+    Returns:
+        training generator list, validation generator list, test generator, test dict and model-shape
+    """
+    num_test_windows = 40
+    test_split = 0.20
+
+    female, male = create_split_from_dict(data_dict=data_dict, k_fold=True)
+
+    if test:
+        female = female[0:10]
+        male = male[0:10]
+
+    num_val_train = int(len(female) * (1-test_split))
+
+    test_female = female[num_val_train:]
+    test_male = male[num_val_train:]
+    test_id = test_female + test_male
+
+    k_fold_female = female[:num_val_train]
+    k_fold_male = male[:num_val_train]
+
+    assert len(list(set(test_id).intersection(set(k_fold_female)))) == 0, "Female ID in both train and test"
+    assert len(list(set(test_id).intersection(set(k_fold_male)))) == 0, "Male ID in both train and test"
+
+    test_generator = DataGenerator(list_IDs=test_id,
+                                   data_dict=data_dict,
+                                   time_slice=time_dict['num_datapoints_per_window'],
+                                   start=time_dict['start_point'],
+                                   num_windows=num_test_windows,
+                                   train_set=False,
+                                   batch_size=batch_size,
+                                   conv2d=use_conv2d)
+
+    test_x, _, _ = load_time_series_dataset(participant_list=test_id[0:1],
+                                            data_dict=data_dict,
+                                            datapoints_per_window=time_dict['num_datapoints_per_window'],
+                                            number_of_windows=time_dict['num_windows'],
+                                            starting_point=time_dict['start_point'],
+                                            conv2d=use_conv2d)
+    model_shape = test_x.shape[1:]
+
+    _, _, test_dict = load_time_series_dataset(participant_list=test_id[0:2],
+                                               data_dict=data_dict,
+                                               datapoints_per_window=time_dict[
+                                                   'num_datapoints_per_window'],
+                                               number_of_windows=num_test_windows,
+                                               starting_point=time_dict['start_point'],
+                                               conv2d=False,
+                                               only_dict=True)
+
+    num_per_split = int(len(k_fold_female) / num_folds)
+
+    training_generator_list = list()
+    validation_generator_list = list()
+
+    for i in range(num_folds - 1):
+        index_from = i * num_per_split
+        index_to = (i + 1) * num_per_split
+
+        val_ids_fem = k_fold_female[index_from: index_to]
+        val_ids_ma = k_fold_male[index_from: index_to]
+        train_ids_fem = k_fold_female[:index_from] + k_fold_female[index_to:]
+        train_ids_ma = k_fold_male[:index_from] + k_fold_male[index_to:]
+
+        train_id = train_ids_fem + train_ids_ma
+        val_id = val_ids_ma + val_ids_fem
+
+        assert len(list(set(train_id).intersection(set(val_id)))) == 0, "Same subjects in training and validation!"
+
+        temp_train_gen = DataGenerator(list_IDs=train_id,
+                                       data_dict=data_dict,
+                                       time_slice=time_dict['num_datapoints_per_window'],
+                                       start=time_dict['start_point'],
+                                       num_windows=time_dict['num_windows'],
+                                       train_set=time_dict['train_set_every_other'],
+                                       batch_size=batch_size,
+                                       conv2d=use_conv2d)
+
+        temp_val_gen = DataGenerator(list_IDs=val_id,
+                                     data_dict=data_dict,
+                                     time_slice=time_dict['num_datapoints_per_window'],
+                                     start=time_dict['start_point'],
+                                     num_windows=time_dict['num_windows'],
+                                     train_set=False,
+                                     batch_size=batch_size,
+                                     conv2d=use_conv2d)
+
+        training_generator_list.append(temp_train_gen)
+        validation_generator_list.append(temp_val_gen)
+
+    return training_generator_list, validation_generator_list, test_generator, test_dict, model_shape

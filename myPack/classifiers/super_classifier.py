@@ -49,7 +49,7 @@ class SUPERClassifier(abc.ABC):
 
         # Standard is val_loss
         mcp_save = ModelCheckpoint(self._model_path + "weights.mdl.wrs.hdf5", save_best_only=True, verbose=0)
-        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=8,
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5,
                                                       min_lr=0.00001)
         self._callbacks = (earlystop, csv_logger, mcp_save, reduce_lr)
 

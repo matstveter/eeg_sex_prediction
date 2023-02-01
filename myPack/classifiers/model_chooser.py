@@ -1,4 +1,4 @@
-from myPack.classifiers.eeg_models import ShallowNet, DeepConvNet, EEGnet, EEGnet_SSVEP
+from myPack.classifiers.eeg_models import EEGnet, EEGnet_own, EEGnet_own2, EEGnet_own4
 from myPack.classifiers.inception_time import InceptionTime, InceptionTime2
 from myPack.classifiers.time_classifiers import ExperimentalClassifier
 
@@ -19,17 +19,17 @@ def get_model(which_model: str, model_dict: dict, hyper_dict: dict, general_dict
     if which_model == "inception":
         model_object = InceptionTime(**sim_args, **kwargs)
 
-    elif which_model == "shallowNet":
-        model_object = ShallowNet(**sim_args, **kwargs)
-
-    elif which_model == "deepConvNet":
-        model_object = DeepConvNet(**sim_args, **kwargs)
-
     elif which_model == "eegNet":
         model_object = EEGnet(**sim_args, **kwargs)
 
-    elif which_model == "eegNetS":
-        model_object = EEGnet_SSVEP(**sim_args, **kwargs)
+    elif which_model == "eegNet2":
+        model_object = EEGnet_own(**sim_args, **kwargs)
+
+    elif which_model == "eegNet3":
+        model_object = EEGnet_own2(**sim_args, **kwargs)
+
+    elif which_model == "eegNet4":
+        model_object = EEGnet_own4(**sim_args, **kwargs)
 
     elif which_model == "inception2":
         model_object = InceptionTime2(**sim_args, **kwargs)

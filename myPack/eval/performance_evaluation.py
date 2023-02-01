@@ -136,7 +136,7 @@ def plot_window_selection_performance(window_dict: dict, total_number_subjects, 
 def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_sub: int,
                                keys) -> [dict, list]:
     """
-    Receives a sigmoid ensemble prediction list [n_models, num_windows, 1], calculate the varience of each prediction
+    Receives a sigmoid ensemble prediction list [n_models, num_windows, 1], calculate the variance of each prediction
     over the samples. This will give a indication of which of the windows do the ensemble have different opinion about.
     Sort the ensemble prediction list according to this uncertainty variance list.
 
@@ -168,6 +168,8 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
         lab = [label_sub] * len(temp_pred)
 
         acc = accuracy_score(y_true=lab, y_pred=temp_pred)
+
+        # todo Evaluate the rejected samples??
 
         # If accuracy is above 0.5, meaning that more than half the samples were predicted correctly, save 1
         if acc > 0.5:
