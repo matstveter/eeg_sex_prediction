@@ -49,7 +49,7 @@ class ExperimentalClassifier(SUPERClassifier):
     def _build_model(self, monte_carlo=False):
         inp = Input(self._input_shape)
 
-        x = conv_layer(inp, num_filters=(32, 10), kernel_size=((1, self.input_shape[0]), (1, 10)), use_2d=self._conv2d,
+        x = conv_layer(inp, num_filters=(100), kernel_size=(1, self.input_shape[0]), use_2d=self._conv2d,
                        padding="same")
         x = pooling_layers(x, pool_size=(1, 4), stride=(1, 4), use_2d=self._conv2d)
         x = batch_layer(x)

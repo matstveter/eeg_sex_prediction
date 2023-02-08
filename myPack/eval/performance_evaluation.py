@@ -62,8 +62,11 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
 
         pred_list = list()
         class_probabilities = list()
+        auc_list = list()
         if model_ensemble:
             for m in model:
+                if "Net" in m.save_name:
+                    data_x = np.expand_dims(data_x, axis=3)
                 _, probs, temp_class = m.predict(data=data_x)
                 pred_list.append(temp_class)
                 class_probabilities.append(probs)
@@ -100,9 +103,9 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
         if per_sample_ensemble_accuracy > 0.5:
             ensemble_sample_majority += 1
 
-        t_dict= evaluate_effective_windows(sigmoid_ensemble_predictions=class_probabilities,
-                                           prediction=avg_ensemble_classes, label_sub=value['label'],
-                                           keys=list(window_eval_dict.keys()))
+        t_dict = evaluate_effective_windows(sigmoid_ensemble_predictions=class_probabilities,
+                                            prediction=avg_ensemble_classes, label_sub=value['label'],
+                                            keys=list(window_eval_dict.keys()))
 
         for k in window_eval_dict.keys():
             window_eval_dict[k] += t_dict[k]
@@ -157,8 +160,9 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
     keep_percentage_windows = [float(i) for i in keys]
     uncertain_samples = np.var(sigmoid_ensemble_predictions, axis=0)
 
-    # Sort the prediction argument according to the uncertainty estimates, the lowest on pred[0] and highest pred[-1]
-    uncertain_samples, prediction = zip(*sorted(zip(uncertain_samples, prediction), key=lambda x: x[0]))
+    zipped_list = zip(list(uncertain_samples), list(prediction))
+    sorted_list = sorted(zipped_list, key=lambda x: x[0])
+    uncertain_samples, prediction = zip(*sorted_list)
 
     res_dict = dict()
 
@@ -168,14 +172,12 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
         lab = [label_sub] * len(temp_pred)
 
         acc = accuracy_score(y_true=lab, y_pred=temp_pred)
-
-        # todo Evaluate the rejected samples??
-
         # If accuracy is above 0.5, meaning that more than half the samples were predicted correctly, save 1
-        if acc > 0.5:
-            res_dict[str(k_percentage)] = 1
-        else:
-            res_dict[str(k_percentage)] = 0
+        # if acc > 0.5:
+        #     res_dict[str(k_percentage)] = 1
+        # else:
+        #     res_dict[str(k_percentage)] = 0
+        res_dict[str(k_percentage)] = acc
 
     return res_dict
 

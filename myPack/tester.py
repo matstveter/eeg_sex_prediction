@@ -19,59 +19,7 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                                                            f"{general_dict['experiment_type']} ****"
                                                            f"\nModel(s): {model_dict['model_name']}", also_print=False)
 
-    if general_dict['experiment_type'] == "kernels":
-        f_1 = [16, 32, 64]
-        f_2 = [32, 64, 128]
-        for f__1, f__2 in zip(f_1, f_2):
-            write_to_file(general_dict['write_file_path'], f"---- Starting Depth {f__1, f__2}/ {zip(f_1, f_2)} ----",
-                          also_print=True)
-            model_object = get_model(which_model=model_dict['model_name'],
-                                     model_dict=model_dict,
-                                     hyper_dict=hyper_dict,
-                                     general_dict=general_dict,
-                                     model_name=model_dict['model_name'] + f"_kernels_{f__1}_{f__2}",
-                                     F1=f__1,
-                                     F2=f__2)
-            _ = model_object.fit(train_generator=train_generator,
-                                 validation_generator=validation_generator,
-                                 plot_test_acc=True,
-                                 save_raw=False)
-
-            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
-            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
-                                                                           test_dict=test_set_dictionary)
-
-            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-                                                           f"\nMajority Voting Acc: "
-                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            write_to_file(general_dict['write_file_path'], f"---- Ending Depth {f__1, f__2}/ {zip(f_1, f_2)} ----",
-                          also_print=True)
-    elif general_dict['experiment_type'] == "dense":
-        denselayers = (None, 8, 32, 64, 128)
-        for d in denselayers:
-            write_to_file(general_dict['write_file_path'], f"---- Starting Dense {d}/ {denselayers} ----",
-                          also_print=True)
-            model_object = get_model(which_model="eegNet",
-                                     model_dict=model_dict,
-                                     hyper_dict=hyper_dict,
-                                     general_dict=general_dict,
-                                     model_name=model_dict['model_name'] + f"_dense_{d}",
-                                     add_dense=d)
-            _ = model_object.fit(train_generator=train_generator,
-                                 validation_generator=validation_generator,
-                                 plot_test_acc=True,
-                                 save_raw=False)
-
-            eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
-            eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
-                                                                           test_dict=test_set_dictionary)
-
-            write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
-                                                           f"\nMajority Voting Acc: "
-                                                           f"{eval_metrics['majority_voting_acc']}", also_print=True)
-            write_to_file(general_dict['write_file_path'], f"---- Ending Depth {d}/ {denselayers} ----",
-                          also_print=True)
-    elif general_dict['experiment_type'] == "models":
+    if general_dict['experiment_type'] == "models":
         models = model_dict['model_name'].split(",")
         if "Net" in model_dict['model_name'] and not model_dict['use_conv2d']:
             raise ValueError("The models from eeg_models file needs 2D conv, dataset must be it as well!")
@@ -95,7 +43,6 @@ def testing_models(data_dict, model_dict, hyper_dict, time_dict, general_dict):
                 eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
                 eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
                                                                                test_dict=test_set_dictionary)
-
                 write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
                                                                f"\nMajority Voting Acc: "
                                                                f"{eval_metrics['majority_voting_acc']}", also_print=True)

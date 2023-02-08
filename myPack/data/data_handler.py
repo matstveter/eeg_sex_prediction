@@ -82,7 +82,8 @@ class DataGenerator(keras.utils.Sequence):
         return np.array(data_list), np.array(label_list)
 
 
-def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, use_conv2d=False, test=False):
+def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, use_conv2d=False, test=False,
+                                load_test_dict=True):
     """
     * Splits the data evenly among the classes
     * Creates three DataGenerators: train, val, test
@@ -95,6 +96,7 @@ def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, us
         time_dict: dictionary containing eeg time series specific information (srate, num_windows ...)
         batch_size: Batch size
         use_conv2d: use convolution2D in the models or not
+        load_test_dict: wheter to load test dictionary
 
     Returns:
         training_generator: DataGenerator
@@ -151,20 +153,24 @@ def get_all_data_and_generators(data_dict: dict, time_dict: dict, batch_size, us
                                             conv2d=use_conv2d)
     model_shape = test_x.shape[1:]
 
-    _, _, test_dict = load_time_series_dataset(participant_list=test_id,
-                                               data_dict=data_dict,
-                                               datapoints_per_window=time_dict[
-                                                   'num_datapoints_per_window'],
-                                               number_of_windows=num_test_windows,
-                                               starting_point=time_dict['start_point'],
-                                               conv2d=False,
-                                               only_dict=True)
+    if load_test_dict:
+        _, _, test_dict = load_time_series_dataset(participant_list=test_id,
+                                                   data_dict=data_dict,
+                                                   datapoints_per_window=time_dict[
+                                                       'num_datapoints_per_window'],
+                                                   number_of_windows=num_test_windows,
+                                                   starting_point=time_dict['start_point'],
+                                                   conv2d=False,
+                                                   only_dict=True)
+    else:
+        test_dict = None
 
     print(f"Training Generator Length: {len(training_generator)}"
           f"\t Validation Generator Length: {len(validation_generator)}"
           f"\t Test Generator Length: {len(test_generator)}"
-          f"\nInput Data Shape: {model_shape}"
-          f"\t Test Dict Length: {len(list(test_dict))}")
+          f"\nInput Data Shape: {model_shape}")
+    if load_test_dict:
+        print(f"Test Dict Length: {len(list(test_dict))}")
 
     return training_generator, validation_generator, test_generator, test_dict, model_shape
 
@@ -361,7 +367,7 @@ def k_fold_generators(data_dict: dict, time_dict: dict, num_folds, batch_size, u
                                             conv2d=use_conv2d)
     model_shape = test_x.shape[1:]
 
-    _, _, test_dict = load_time_series_dataset(participant_list=test_id[0:2],
+    _, _, test_dict = load_time_series_dataset(participant_list=test_id,
                                                data_dict=data_dict,
                                                datapoints_per_window=time_dict[
                                                    'num_datapoints_per_window'],

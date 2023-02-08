@@ -26,10 +26,15 @@ def get_conf_interval(metrics, alpha=0.95):
     Returns:
         mean, lower, upper
     """
-    mean_metric = np.mean(metrics)
-    std_error = sem(metrics, nan_policy="omit")
-
-    confidence_interval = t.interval(alpha=alpha, df=len(metrics) - 1, loc=mean_metric, scale=std_error)
+    if len(metrics) == 1:
+        return metrics, metrics, metrics
+    try:
+        mean_metric = np.mean(metrics)
+        std_error = sem(metrics, nan_policy="omit")
+        confidence_interval = t.interval(alpha=alpha, df=len(metrics) - 1, loc=mean_metric, scale=std_error)
+    except RuntimeWarning:
+        print(f"Missing values, or something is nan: Mean:{np.mean(metrics)}")
+        return np.mean(metrics), 0, 0
 
     return mean_metric, confidence_interval[0], confidence_interval[1]
 

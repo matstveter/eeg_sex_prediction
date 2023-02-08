@@ -121,9 +121,8 @@ def conv_layer(input_to_conv: tuple, num_filters: Union[int, tuple], kernel_size
     return outp
 
 
-def dense_layer(input_to_dense: tuple, neurons: Union[int, tuple], apply_batchnorm: bool = False,
-                apply_dropout: bool = True, dropout_rate: float = 0.5, monte_carlo: bool = False,
-                kernel_init: str = "glorot_uniform"):
+def dense_layer(input_to_dense: tuple, neurons: Union[int, tuple], kernel_init, apply_batchnorm: bool = False,
+                apply_dropout: bool = True, dropout_rate: float = 0.5, monte_carlo: bool = False):
     """ Function creating 1 or n numbers of dense-layers, based on neurons' argument, if tuple, len(tuple) dense layers
     is returned. This function can also apply dropout inbetween the layers, and also capable of creating it monte_carlo
     dropout ready. Relu is always applied, after batch_norm if True, and before dropout if true-
@@ -135,6 +134,7 @@ def dense_layer(input_to_dense: tuple, neurons: Union[int, tuple], apply_batchno
         apply_dropout: apply dropout
         dropout_rate: dropout rate
         monte_carlo: argument to the dropout layer function, set training=True on the dropout layers
+        kernel_init: initializer for the weights, standard=glorot_uniform
 
     Raises:
         ValueError: If the number of neurons sent into the network is 0
@@ -259,12 +259,13 @@ def flatten_layer(input_to_flatten: tuple, use_2d, use_flatten: bool = True):
     return outp
 
 
-def inception_module(input_to_inception, activation: str = "linear", use_bottleneck: bool = False,
+def inception_module(input_to_inception, kernel_init, activation: str = "linear", use_bottleneck: bool = False,
                      bottleneck_size: int = 32, kernel_sizes: tuple = None, num_filters: int = 32):
     """ Function to create a inception module, taken from
     https://github.com/hfawaz/InceptionTime/blob/470ce144c1ba43b421e72e1d216105db272e513f/classifiers/inception.py
 
     Args:
+        kernel_init: weight initializer
         input_to_inception: input to module
         activation: activation function used throughout the module, standard=Linear
         use_bottleneck: use bottlenect layers or not
@@ -280,7 +281,8 @@ def inception_module(input_to_inception, activation: str = "linear", use_bottlen
 
     if use_bottleneck and int(input_to_inception.shape[-1] > 1):
         input_tensor = Conv1D(filters=bottleneck_size, kernel_size=1, padding="same", activation=activation,
-                              use_bias=False, data_format="channels_first")(input_to_inception)
+                              use_bias=False, data_format="channels_first",
+                              kernel_initializer=kernel_init)(input_to_inception)
     else:
         input_tensor = input_to_inception
 
@@ -291,11 +293,12 @@ def inception_module(input_to_inception, activation: str = "linear", use_bottlen
 
     for k in kernel_sizes:
         conv_list.append(Conv1D(filters=num_filters, kernel_size=k, strides=1, padding="same", activation=activation,
-                                use_bias=False, data_format="channels_first")(input_tensor))
+                                use_bias=False, data_format="channels_first",
+                                kernel_initializer=kernel_init)(input_tensor))
 
     max_pool_1 = MaxPooling1D(pool_size=3, strides=1, padding="same")(input_tensor)
     conv_lay = Conv1D(filters=num_filters, kernel_size=1, padding="same", activation=activation,
-                      use_bias=False, data_format="channels_first")(max_pool_1)
+                      use_bias=False, data_format="channels_first", kernel_initializer=kernel_init)(max_pool_1)
     conv_list.append(conv_lay)
 
     x = Concatenate(axis=1)(conv_list)
@@ -304,9 +307,10 @@ def inception_module(input_to_inception, activation: str = "linear", use_bottlen
     return x
 
 
-def shortcut_layer(input_tensor, output_tensor):
+def shortcut_layer(input_tensor, output_tensor, kernel_init="glorot_uniform"):
     shortcut_y = Conv1D(filters=int(output_tensor.shape[1]), kernel_size=1, padding="same", use_bias=False,
-                        data_format="channels_first")(input_tensor)
+                        data_format="channels_first",
+                        kernel_initializer=kernel_init)(input_tensor)
     shortcut_y = BatchNormalization()(shortcut_y)
 
     x = keras.layers.Add()([shortcut_y, output_tensor])

@@ -14,7 +14,7 @@ from myPack.utils import plot_accuracy, save_to_pkl
 
 class SUPERClassifier(abc.ABC):
     def __init__(self, input_shape, output_shape, save_path, fig_path, save_name, logits, batch_size=32, epochs=300,
-                 patience=50, verbose=False, learning_rate=0.001):
+                 patience=50, verbose=False, learning_rate=0.001, kernel_init="glorot_uniform"):
         self._input_shape = input_shape
 
         if len(input_shape) == 3:
@@ -32,6 +32,7 @@ class SUPERClassifier(abc.ABC):
         self._epochs = epochs
         self._patience = patience
         self._learning_rate = learning_rate
+        self._kernel_init = kernel_init
 
         # Different saving paths
         self._model_path = save_path
@@ -52,8 +53,6 @@ class SUPERClassifier(abc.ABC):
         reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5,
                                                       min_lr=0.00001)
         self._callbacks = (earlystop, csv_logger, mcp_save, reduce_lr)
-
-        # todo Don't use both early-stopping and reduce_lr ?
 
         # Two models, self.model will be the last model after training, early stop model is the one with the suggested
         # best weights during training
@@ -99,11 +98,11 @@ class SUPERClassifier(abc.ABC):
     def _finish_model(self, input_to_model, x, output_shape):
         if self._logits:
             custom_loss = keras.losses.BinaryCrossentropy(from_logits=True)
-            out = keras.layers.Dense(output_shape)(x)
+            out = keras.layers.Dense(output_shape, kernel_initializer=self._kernel_init)(x)
 
         else:
             custom_loss = keras.losses.BinaryCrossentropy(from_logits=False)
-            out = keras.layers.Dense(output_shape, activation="sigmoid")(x)
+            out = keras.layers.Dense(output_shape, activation="sigmoid", kernel_initializer=self._kernel_init)(x)
 
         model = keras.models.Model(inputs=input_to_model, outputs=out)
         optim = tf.keras.optimizers.Adam(learning_rate=self._learning_rate, decay=0.0)
@@ -157,7 +156,7 @@ class SUPERClassifier(abc.ABC):
         keras.backend.clear_session()
         return history
 
-    def predict(self, data, labels=None,  return_metrics=False, verbose=False, monte_carlo=False):
+    def predict(self, data, labels=None, return_metrics=False, verbose=False, monte_carlo=False):
         """ Predicts input data, can be either a data generator or a testx/testy dataset
 
         Args:
@@ -172,17 +171,15 @@ class SUPERClassifier(abc.ABC):
         """
         if return_metrics:
             if isinstance(data, np.ndarray) and labels is None:
-                raise ValueError("Need labels as well if the data argument is not a datagenerator")
+                raise ValueError("Need labels as well if the data argument is not a data-generator")
 
             # Returns evaluation metrics
-            eval_metrics = self._model.evaluate(x=data, y=labels, batch_size=self._batch_size, return_dict=True,
-                                                verbose=verbose)
-            # if labels is not None:
-            #     # This means that the labels are not none, which indicates that the number of correct predictions
-            #     # is also relevant(majority voting will use this option)
-            #     y_pred, y_sig, y_class = self.predict(data=data, labels=labels)
-            #     num_correct = accuracy_score(y_true=labels, y_pred=y_class, normalize=False)
-            #     eval_metrics['num_correct'] = num_correct
+            if monte_carlo:
+                eval_metrics = self._mc_model.evaluate(x=data, y=labels, batch_size=self._batch_size,
+                                                       return_dict=True, verbose=verbose)
+            else:
+                eval_metrics = self._model.evaluate(x=data, y=labels, batch_size=self._batch_size, return_dict=True,
+                                                    verbose=verbose)
             return eval_metrics
         else:
             # Predicts, sends through sigmoid if the logits is True and then classifies
