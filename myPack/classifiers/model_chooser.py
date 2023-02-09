@@ -1,5 +1,5 @@
 from myPack.classifiers.eeg_models import EEGnet, EEGnet_own
-from myPack.classifiers.inception_time import InceptionTime, InceptionTime2
+from myPack.classifiers.inception_time import InceptionTime
 from myPack.classifiers.time_classifiers import ExperimentalClassifier
 
 
@@ -20,7 +20,7 @@ def get_model(which_model: str, model_dict: dict, hyper_dict: dict, general_dict
     if which_model == "inception":
         model_object = InceptionTime(**sim_args, depth=4)
     elif which_model == "inception_mc":
-        model_object = InceptionTime2(**sim_args, depth=4)
+        model_object = InceptionTime(**sim_args, depth=4, add_dense=(64, 4))
     elif which_model == "eegNet":
         model_object = EEGnet(**sim_args)
     elif which_model == "eegNet_MC":
