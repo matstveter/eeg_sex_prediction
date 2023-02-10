@@ -5,17 +5,11 @@ from myPack.utils import get_conf_interval, load_pkl, plot_confidence_interval, 
 
 
 def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, time_dict: dict, general_dict: dict):
-    # Get data generators, test_dictionary and model shape
-    # train_generator, validation_generator, test_generator, test_set_dictionary, model_shape = \
-    #     get_all_data_and_generators(data_dict=data_dict, time_dict=time_dict, batch_size=hyper_dict['batch_size'],
-    #                                 use_conv2d=model_dict['use_conv2d'], test=general_dict['testing'])
-    # model_dict['input_shape'] = model_shape
-    #
     # Write to file, important information
     write_to_file(general_dict['write_file_path'], message=f"**** Starting Experiment: "
                                                            f"{general_dict['experiment_type']} ****"
                                                            f"\nModel(s): {model_dict['model_name']}", also_print=True)
-    num_ensembles = 1
+    num_ensembles = 5
 
     if general_dict['experiment_type'] == "single_model":
         # Depending on the model that is running, this can adjust the models "extra" parameters
@@ -25,10 +19,14 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         model_dict['input_shape'] = model_shape
 
         metrics_dictionary = dict()
-        histories = list()
         accs = list()
         maj_accs = list()
         aucs = list()
+
+        ensemble_performance_subject = list()
+        ensemble_performance_sample = list()
+
+        best_model = 0
 
         for i in range(general_dict['num_models']):
             write_to_file(general_dict['write_file_path'],
@@ -43,7 +41,6 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                           validation_generator=validation_generator,
                                           plot_test_acc=True,
                                           save_raw=True)
-            histories.append(train_hist)
             eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
             eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
                                                                            test_dict=test_set_dictionary)
@@ -53,17 +50,30 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                                            f"{eval_metrics['majority_voting_acc']}"
                                                            f"\nTest AUC: {eval_metrics['auc']}", also_print=True)
             if model_dict['apply_mc']:
-                per_sub, per_samp = evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
-                                                       write_file_path=general_dict['write_file_path'],
-                                                       figure_path=general_dict['fig_path'] + model_dict[
-                                                           'model_name'] + "_" + str(i))
+                per_sub, per_samp, windows = evaluate_ensembles(model=model_object, test_dict=test_set_dictionary,
+                                                                write_file_path=general_dict['write_file_path'],
+                                                                figure_path=general_dict['fig_path'] + model_dict[
+                                                                    'model_name'] + "_" + str(i))
                 eval_metrics['per_subject_mc'] = per_sub
                 eval_metrics['per_sample_mc'] = per_samp
+                eval_metrics['effective_windows'] = windows
+
+                ensemble_performance_subject.append(per_sub)
+                ensemble_performance_sample.append(per_samp)
+
+            eval_metrics['train_history'] = train_hist
             metrics_dictionary[model_object.save_name] = eval_metrics
 
             accs.append(eval_metrics['accuracy'])
             maj_accs.append(eval_metrics['majority_voting_acc'])
             aucs.append(eval_metrics['auc'])
+
+            # Saving model
+            if eval_metrics['majority_voting_acc'] > best_model:
+                print("SAVING MODEL...")
+                best_model = eval_metrics['majority_voting_acc']
+                model_object.model.save(general_dict['model_path'])
+
             write_to_file(general_dict['write_file_path'], f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
                           also_print=True)
 
@@ -79,9 +89,13 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         write_to_file(general_dict['write_file_path'], f"AUC (mean, lower, upper): {get_conf_interval(aucs)}",
                       also_print=False)
 
-        plot_confidence_interval(histories=histories, key="accuracy", save_name=general_dict['fig_path'])
-        plot_confidence_interval(histories=histories, key="f1", save_name=general_dict['fig_path'])
-        plot_confidence_interval(histories=histories, key="auc", save_name=general_dict['fig_path'])
+        if model_dict['apply_mc']:
+            write_to_file(general_dict['write_file_path'], f"Confidence intervals for all ensembles (Runs: "
+                                                           f"{general_dict['num_models']}")
+            write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_subject)}")
+            write_to_file(general_dict['write_file_path'], f"Per Sample (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_sample)}")
     elif general_dict['experiment_type'] == "ensemble_models":
         train_gen, val_gen, test_gen, test_set_dictionary, model_shape1 = \
             get_all_data_and_generators(data_dict=data_dict, time_dict=time_dict, batch_size=hyper_dict['batch_size'],
@@ -94,10 +108,12 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
 
         ensemble_performance_subject = list()
         ensemble_performance_sample = list()
+        metrics_dictionary = dict()
 
         for e in range(num_ensembles):
             write_to_file(general_dict['write_file_path'], f"Starting ensemble {e + 1} / {num_ensembles}")
             model_list = list()
+            ensemble_metrics = dict()
             for m in models:
                 if "Net" in m:
                     print("Changing Generator to 2D")
@@ -105,7 +121,6 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                     validation_generator = val_gen2D
                     test_generator = test_gen2D
                     model_dict['input_shape'] = model_shape2D
-                    print(model_shape2D)
                 else:
                     print("Changing Generator to 1D")
                     train_generator = train_gen
@@ -120,10 +135,10 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                          hyper_dict=hyper_dict,
                                          general_dict=general_dict,
                                          model_name=m)
-                model_object.fit(train_generator=train_generator,
-                                 validation_generator=validation_generator,
-                                 plot_test_acc=True,
-                                 save_raw=True)
+                train_hist = model_object.fit(train_generator=train_generator,
+                                              validation_generator=validation_generator,
+                                              plot_test_acc=True,
+                                              save_raw=True)
 
                 eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
                 eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
@@ -132,25 +147,36 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                 write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
                                                                f"\nMajority Voting Acc: "
                                                                f"{eval_metrics['majority_voting_acc']}"
-                              f"\nTest AUC: {eval_metrics['auc']}", also_print=True)
+                                                               f"\nTest AUC: {eval_metrics['auc']}", also_print=True)
                 model_list.append(model_object)
                 write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----",
                               also_print=True)
-            sub_perf, samp_per = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
-                                                    write_file_path=general_dict['write_file_path'],
-                                                    figure_path=general_dict['fig_path'] + "ensemble_" + str(e))
+                eval_metrics["train_history"] = train_hist
+                ensemble_metrics[str(e) + "_" + m] = eval_metrics
+            sub_perf, samp_per, windows = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
+                                                             write_file_path=general_dict['write_file_path'],
+                                                             figure_path=general_dict['fig_path'] + "ensemble_" + str(
+                                                                 e))
+            ensemble_metrics['ensemble_performance_subject'] = sub_perf
+            ensemble_metrics['ensemble_performance_sample'] = samp_per
+            ensemble_metrics['effective_windows'] = windows
+
             ensemble_performance_subject.append(sub_perf)
             ensemble_performance_sample.append(samp_per)
 
             write_to_file(general_dict['write_file_path'], f"Ending ensemble {e + 1} / {num_ensembles}")
 
-        # Evaluate the list of uncertainties from evaluate_ensemble method??
-        write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles",
-                      also_print=False)
-        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
-                                                       f"{get_conf_interval(ensemble_performance_subject)}")
-        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
-                                                       f"{get_conf_interval(ensemble_performance_subject)}")
+            metrics_dictionary['ensemble_' + str(e)] = ensemble_metrics
+
+        save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
+
+        if num_ensembles > 1:
+            write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles",
+                          also_print=False)
+            write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_subject)}")
+            write_to_file(general_dict['write_file_path'], f"Per Sample (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_sample)}")
     elif general_dict['experiment_type'] == "ensemble_weights":
         train_generator, validation_generator, test_generator, test_set_dictionary, model_shape = \
             get_all_data_and_generators(data_dict=data_dict, time_dict=time_dict, batch_size=hyper_dict['batch_size'],
@@ -160,9 +186,12 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
         ensemble_performance_subject = list()
         ensemble_performance_sample = list()
 
+        metrics_dictionary = dict()
+
         for e in range(num_ensembles):
             write_to_file(general_dict['write_file_path'], f"Starting ensemble {e + 1} / {num_ensembles}")
             model_list = list()
+            ensemble_metrics = dict()
             for i in range(general_dict['num_models']):
                 write_to_file(general_dict['write_file_path'],
                               f"---- Starting Run {i + 1}/{general_dict['num_models']} ----",
@@ -174,7 +203,77 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                                          general_dict=general_dict,
                                          model_name=model_dict['model_name'] + "_" + str(i) + "_ens_" + str(e))
 
-                model_object.fit(train_generator=train_generator,
+                train_hist = model_object.fit(train_generator=train_generator,
+                                              validation_generator=validation_generator,
+                                              plot_test_acc=True,
+                                              save_raw=True)
+                eval_metrics = model_object.predict(data=test_generator, return_metrics=True)
+                eval_metrics['majority_voting_acc'] = evaluate_majority_voting(model_object=model_object,
+                                                                               test_dict=test_set_dictionary)
+
+                write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
+                                                               f"\nMajority Voting Acc: "
+                                                               f"{eval_metrics['majority_voting_acc']}"
+                                                               f"\nTest AUC: {eval_metrics['auc']}", also_print=True)
+                model_list.append(model_object)
+                write_to_file(general_dict['write_file_path'],
+                              f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
+                              also_print=True)
+                ensemble_metrics['train_history'] = train_hist
+                ensemble_metrics[str(e) + "_model_" + str(i)] = eval_metrics
+
+            sub_perf, samp_per, windows = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
+                                                             write_file_path=general_dict['write_file_path'],
+                                                             figure_path=general_dict['fig_path'] + "ensemble_" + str(
+                                                                 e))
+            # Saving data
+            ensemble_metrics['ensemble_performance_subject'] = sub_perf
+            ensemble_metrics['ensemble_performance_sample'] = samp_per
+            ensemble_metrics['effective_windows'] = windows
+
+            ensemble_performance_subject.append(sub_perf)
+            ensemble_performance_sample.append(samp_per)
+
+            metrics_dictionary['ensemble_' + str(e)] = ensemble_metrics
+
+            write_to_file(general_dict['write_file_path'], f"Ending ensemble {e + 1} / {num_ensembles}")
+
+        # Evaluate the list of uncertainties from evaluate_ensemble method??
+        save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
+
+        if num_ensembles > 1:
+            write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles:")
+            write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_subject)}")
+            write_to_file(general_dict['write_file_path'], f"Per Sample (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_sample)}")
+    elif general_dict['experiment_type'] == "depth_ensemble":
+        train_generator, validation_generator, test_generator, test_set_dictionary, model_shape = \
+            get_all_data_and_generators(data_dict=data_dict, time_dict=time_dict, batch_size=hyper_dict['batch_size'],
+                                        use_conv2d=model_dict['use_conv2d'], test=general_dict['testing'])
+        model_dict['input_shape'] = model_shape
+
+        metrics_dictionary = dict()
+        ensemble_performance_sample = list()
+        ensemble_performance_subject = list()
+        depths = [2, 4, 6, 8, 10]
+
+        for e in range(num_ensembles):
+            write_to_file(general_dict['write_file_path'], f"Starting ensemble {e + 1} / {num_ensembles}")
+            model_list = list()
+            ensemble_metrics = dict()
+
+            for d in depths:
+                write_to_file(general_dict['write_file_path'], f"Starting depth_ensemble: {d}")
+
+                model_object = get_model(which_model=model_dict['model_name'],
+                                         model_dict=model_dict,
+                                         hyper_dict=hyper_dict,
+                                         general_dict=general_dict,
+                                         model_name=model_dict['model_name'] + "_dep" + str(d) + "_ens_" + str(e),
+                                         depth=d)
+
+                train_hist = model_object.fit(train_generator=train_generator,
                                  validation_generator=validation_generator,
                                  plot_test_acc=True,
                                  save_raw=True)
@@ -185,44 +284,36 @@ def run_final_experiment(data_dict: dict, model_dict: dict, hyper_dict: dict, ti
                 write_to_file(general_dict['write_file_path'], f"Test Set Acc: {eval_metrics['accuracy']}"
                                                                f"\nMajority Voting Acc: "
                                                                f"{eval_metrics['majority_voting_acc']}"
-                              f"\nTest AUC: {eval_metrics['auc']}", also_print=True)
+                                                               f"\nTest AUC: {eval_metrics['auc']}", also_print=True)
                 model_list.append(model_object)
-                write_to_file(general_dict['write_file_path'],
-                              f"---- Ending Run {i + 1}/{general_dict['num_models']} ----",
-                              also_print=True)
-
-            sub_perf, samp_per = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
-                                                    write_file_path=general_dict['write_file_path'],
-                                                    figure_path=general_dict['fig_path'] + "ensemble_" + str(e))
-            ensemble_performance_subject.append(sub_perf)
-            ensemble_performance_sample.append(samp_per)
+                write_to_file(general_dict['write_file_path'], f"Ending depth_ensemble: {d}")
+                ensemble_metrics['training_history'] = train_hist
+                ensemble_metrics[str(e) + "_model_" + str(d)] = eval_metrics
 
             write_to_file(general_dict['write_file_path'], f"Ending ensemble {e + 1} / {num_ensembles}")
 
-        # Evaluate the list of uncertainties from evaluate_ensemble method??
-        write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles:")
-        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
-                                                       f"{get_conf_interval(ensemble_performance_subject)}")
-        write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
-                                                       f"{get_conf_interval(ensemble_performance_subject)}")
-    elif general_dict['experiment_type'] == "depth_ensemble":
-        train_generator, validation_generator, test_generator, test_set_dictionary, model_shape = \
-            get_all_data_and_generators(data_dict=data_dict, time_dict=time_dict, batch_size=hyper_dict['batch_size'],
-                                        use_conv2d=model_dict['use_conv2d'], test=general_dict['testing'])
-        model_dict['input_shape'] = model_shape
-        # metrics_dictionary = dict()
-        # histories = list()
-        # accs = list()
-        # maj_accs = list()
-        # aucs = list()
+            sub_perf, samp_per, windows = evaluate_ensembles(model=model_list, test_dict=test_set_dictionary,
+                                                             write_file_path=general_dict['write_file_path'],
+                                                             figure_path=general_dict['fig_path'] + "ensemble_" + str(
+                                                                 e))
+            # Saving data
+            ensemble_metrics['ensemble_performance_subject'] = sub_perf
+            ensemble_metrics['ensemble_performance_sample'] = samp_per
+            ensemble_metrics['effective_windows'] = windows
 
-        depths = [2, 4, 6, 8, 10]
+            ensemble_performance_subject.append(sub_perf)
+            ensemble_performance_sample.append(samp_per)
 
-        for d in depths:
-            write_to_file(general_dict['write_file_path'], f"Starting depth_ensemble: {d}")
+            metrics_dictionary['ensemble_' + str(e)] = ensemble_metrics
 
-            write_to_file(general_dict['write_file_path'], f"Ending depth_ensemble: {d}")
+        save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
 
+        if num_ensembles > 1:
+            write_to_file(general_dict['write_file_path'], "Confidence intervals for all ensembles:")
+            write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_subject)}")
+            write_to_file(general_dict['write_file_path'], f"Per Subject (mean, lower, upper): "
+                                                           f"{get_conf_interval(ensemble_performance_sample)}")
     elif general_dict['experiment_type'] == "k_fold":
         num_k_folds = 5
 

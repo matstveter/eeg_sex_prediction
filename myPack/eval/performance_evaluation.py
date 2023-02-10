@@ -120,8 +120,10 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
 
     plot_window_selection_performance(window_dict=window_eval_dict, total_number_subjects=len(list(test_dict.keys())),
                                       figure_path=figure_path)
+    for k, v in window_eval_dict.items():
+        window_eval_dict[k] = (v / len(list(test_dict.keys()))) * 100
 
-    return per_subject_acc, per_sample_acc
+    return per_subject_acc, per_sample_acc, window_eval_dict
 
 
 def plot_window_selection_performance(window_dict: dict, total_number_subjects, figure_path):
