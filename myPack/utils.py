@@ -15,8 +15,6 @@ sns.set_theme()
 
 meaning_of_life = 42  # Seeding the random function
 
-def get_conf_interval():
-    pass
 
 def write_confidence_interval(metric, write_file_path, metric_name, alpha=0.05):
     sample_mean = np.mean(metric)
@@ -26,18 +24,17 @@ def write_confidence_interval(metric, write_file_path, metric_name, alpha=0.05):
 
     confidence_interval = 1 - alpha
 
-    t_value = stats.t.ppf((1 + confidence_interval / 2), df=n-1)
+    t_value = stats.t.ppf((1 + confidence_interval / 2), df=n - 1)
     margin_of_error = t_value * (sample_std / np.sqrt(n))
 
     lower_bound = sample_mean - margin_of_error
     upper_bound = sample_mean + margin_of_error
 
-    write_to_file(file_name_path=write_file_path, message=f"------------ {metric_name} ------------", also_print=False)
+    write_to_file(file_name_path=write_file_path, message=f"--- {metric_name} ----", also_print=False)
     write_to_file(file_name_path=write_file_path, message=f"Sample Mean: {sample_mean:.3f}", also_print=False)
     write_to_file(file_name_path=write_file_path, message=f"Margin of error: {margin_of_error:.3f}", also_print=False)
     write_to_file(file_name_path=write_file_path, message=f"Confidence Interval: [{lower_bound:.3f}, "
                                                           f"{upper_bound:.3f}]", also_print=False)
-    write_to_file(file_name_path=write_file_path, message="-----------------------------------------", also_print=False)
 
 
 def plot_confidence_interval(histories: list, key: str, save_name: str, confidence: float = 0.95) -> None:

@@ -223,7 +223,7 @@ def create_split_from_dict(data_dict: dict, data_split=None, k_fold=False):
             # extra_data = temp[len(male):]
 
     if k_fold:
-        # random.seed(meaning_of_life)
+        random.seed(meaning_of_life)
         random.shuffle(female)
         random.shuffle(male)
         return female, male
@@ -381,6 +381,10 @@ def create_k_folds(*, data_dict: dict, num_folds=5):
         index_list.remove(val_index)
         temp_train = [element for i in index_list for element in subject_batch[i]]
         duplicate_check(subs=[temp_train, temp_val, temp_test])
+
+        random.shuffle(temp_train)
+        random.shuffle(temp_val)
+        random.shuffle(temp_test)
 
         train_subject_list.append(temp_train)
         val_subject_list.append(temp_val)

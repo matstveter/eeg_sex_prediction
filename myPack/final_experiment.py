@@ -378,9 +378,6 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                 model_list.append(model_object)
                 ensemble_metrics[str(n) + "_" + m] = eval_metrics
 
-                write_to_file(general_dict['write_file_path'],
-                              f"Ending Ensemble: {m} / {num_models_in_ensemble}\n\n")
-
                 write_to_file(general_dict['write_file_path'], f"---- Ending Model {m}/ {models} ----")
 
             # Start Ensemble Performance Evaluation #
