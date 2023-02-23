@@ -8,35 +8,36 @@ import numpy
 from typing import Tuple
 import pickle
 import random
-from scipy.stats import sem, t
+from scipy import stats
 
 sns.set_style(style="white")
 sns.set_theme()
 
 meaning_of_life = 42  # Seeding the random function
 
+def get_conf_interval():
+    pass
 
-def get_conf_interval(metrics, alpha=0.95):
-    """
-    Calculates the conf interval from a list of metrics
-    Args:
-        metrics: acc, auc
-        alpha: 0.95 for 95% confidence interval
+def write_confidence_interval(metric, write_file_path, metric_name, alpha=0.05):
+    sample_mean = np.mean(metric)
+    sample_std = np.std(metric, ddof=1)
 
-    Returns:
-        mean, lower, upper
-    """
-    if len(metrics) == 1:
-        return metrics, metrics, metrics
-    try:
-        mean_metric = np.mean(metrics)
-        std_error = sem(metrics, nan_policy="omit")
-        confidence_interval = t.interval(alpha=alpha, df=len(metrics) - 1, loc=mean_metric, scale=std_error)
-    except RuntimeWarning:
-        print(f"Missing values, or something is nan: Mean:{np.mean(metrics)}")
-        return np.mean(metrics), 0, 0
+    n = len(metric)
 
-    return mean_metric, confidence_interval[0], confidence_interval[1]
+    confidence_interval = 1 - alpha
+
+    t_value = stats.t.ppf((1 + confidence_interval / 2), df=n-1)
+    margin_of_error = t_value * (sample_std / np.sqrt(n))
+
+    lower_bound = sample_mean - margin_of_error
+    upper_bound = sample_mean + margin_of_error
+
+    write_to_file(file_name_path=write_file_path, message=f"------------ {metric_name} ------------", also_print=False)
+    write_to_file(file_name_path=write_file_path, message=f"Sample Mean: {sample_mean:.3f}", also_print=False)
+    write_to_file(file_name_path=write_file_path, message=f"Margin of error: {margin_of_error:.3f}", also_print=False)
+    write_to_file(file_name_path=write_file_path, message=f"Confidence Interval: [{lower_bound:.3f}, "
+                                                          f"{upper_bound:.3f}]", also_print=False)
+    write_to_file(file_name_path=write_file_path, message="-----------------------------------------", also_print=False)
 
 
 def plot_confidence_interval(histories: list, key: str, save_name: str, confidence: float = 0.95) -> None:
@@ -209,7 +210,7 @@ def create_run_folder(path: str) -> Tuple:
     return run_path, fig_path, models_path
 
 
-def write_to_file(file_name_path: str, message: str, also_print=False) -> None:
+def write_to_file(file_name_path: str, message: str, also_print=True) -> None:
     """ Function which takes a filepath as input, and writes a string in that file, can also print the statement,
     given that the argument also_print is set to True. If the file_path_name is not the path to a actual file, an
     error message is printed, and the string is printed in terminal as well

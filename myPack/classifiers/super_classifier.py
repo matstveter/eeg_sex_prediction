@@ -1,4 +1,6 @@
 import abc
+import warnings
+
 import keras.backend
 import numpy as np
 import tensorflow as tf
@@ -40,7 +42,7 @@ class SUPERClassifier(abc.ABC):
         self._save_name = save_name
 
         # Metrics
-        self._metrics = ('accuracy', mcc, specificity, recall, f1, precision,
+        self._metrics = ("accuracy", mcc, specificity, recall, f1, precision,
                          tf.keras.metrics.AUC(from_logits=self._logits))
 
         # Callbacks
@@ -49,7 +51,8 @@ class SUPERClassifier(abc.ABC):
         csv_logger = CSVLogger(self._model_path + "training.csv", append=True)
 
         # Standard is val_loss
-        mcp_save = ModelCheckpoint(self._model_path + "weights.mdl.wrs.hdf5", save_best_only=True, verbose=0)
+        mcp_save = ModelCheckpoint(self._model_path + "weights.h5", save_best_only=True, verbose=0,
+                                   save_weights_only=True)
         reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5,
                                                       min_lr=0.00001)
         self._callbacks = (earlystop, csv_logger, mcp_save, reduce_lr)
@@ -120,7 +123,7 @@ class SUPERClassifier(abc.ABC):
         Returns:
             None
         """
-        self._temp_model.load_weights(self._model_path + "weights.mdl.wrs.hdf5")
+        self._temp_model.load_weights(self._model_path + "weights.h5")
         res_temp_model = self._temp_model.evaluate(x=validation_generator, batch_size=self._batch_size, verbose=False)
         acc_temp = res_temp_model[1]
         # auc_temp = res_temp_model[-1]
@@ -132,9 +135,9 @@ class SUPERClassifier(abc.ABC):
         # todo Evaluate auc instead of acc???
 
         if acc_temp >= acc_model:
-            self._temp_model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
+            self._temp_model.save_weights(self._model_path + self._save_name + "_best_weights.h5")
         else:
-            self._model.save_weights(self._model_path + self._save_name + "_weights.hdf5")
+            self._model.save_weights(self._model_path + self._save_name + "best_weights.h5")
 
     def fit(self, train_generator, validation_generator, plot_test_acc=False, save_raw=False):
         history = self._model.fit(x=train_generator, validation_data=validation_generator, epochs=self._epochs,
@@ -144,8 +147,8 @@ class SUPERClassifier(abc.ABC):
         self._eval_trained_models(validation_generator=validation_generator)
 
         # Load the best model from the evaluation function
-        self._model.load_weights(self._model_path + self._save_name + "_weights.hdf5")
-        self._mc_model.load_weights(self._model_path + self._save_name + "_weights.hdf5")
+        self._model.load_weights(self._model_path + self._save_name + "_best_weights.h5")
+        self._mc_model.load_weights(self._model_path + self._save_name + "_best_weights.h5")
 
         if plot_test_acc:
             plot_accuracy(history=history, fig_path=self._fig_path, save_name=self._save_name)

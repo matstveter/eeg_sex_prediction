@@ -307,6 +307,7 @@ def inception_module(input_to_inception, kernel_init, activation: str = "linear"
     return x
 
 
+
 def shortcut_layer(input_tensor, output_tensor, kernel_init="glorot_uniform"):
     shortcut_y = Conv1D(filters=int(output_tensor.shape[1]), kernel_size=1, padding="same", use_bias=False,
                         data_format="channels_first",

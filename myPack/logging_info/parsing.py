@@ -44,7 +44,6 @@ def time_configparser(conf_file):
 
     general_dict['test_mode'] = config.getboolean('GENERAL', 'test_mode')
     general_dict['experiment_type'] = config.get('GENERAL', 'experiment_type')
-    general_dict['num_models'] = config.getint('GENERAL', 'num_models')
 
     hyper_dict['dropout'] = 0.5
     hyper_dict['cnn_dropout'] = 0.1
