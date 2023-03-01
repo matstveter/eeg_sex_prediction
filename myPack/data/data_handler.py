@@ -124,7 +124,6 @@ def get_all_data_and_generators(*, data_dict: dict, time_dict: dict, batch_size,
         val_id = val_id[0:1]
         test_id = test_id[0:1]
 
-
     training_generator = DataGenerator(list_IDs=train_id,
                                        data_dict=data_dict,
                                        time_slice=time_dict['num_datapoints_per_window'],

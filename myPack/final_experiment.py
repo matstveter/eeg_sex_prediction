@@ -4,7 +4,6 @@ from myPack.classifiers.model_chooser import get_model
 from myPack.data.data_handler import create_k_folds, get_all_data_and_generators, load_time_series_dataset
 from myPack.eval.performance_evaluation import evaluate_ensembles, evaluate_majority_voting
 from myPack.utils import save_to_pkl, write_confidence_interval, write_to_file
-from myPack.classifiers.keras_utils import mcc, specificity, recall, precision, f1
 
 
 def complete_model_evaluation(model_object, test_set_generator, test_dict, write_file_path) -> dict:
@@ -414,23 +413,13 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
 
         paths_to_models = ['theta', 'delta', 'alpha', 'beta_low', 'beta_high', 'gamma']
 
+        # MAKE SURE THAT ALL MODELS ARE TRAINED ON THE SAME DATA AND TESTED ON THE SAME
+
         model_list = []
 
         for n in range(num_k_folds):
             write_to_file(general_dict['write_file_path'], f"Starting Experiment with fold: {n + 1} / {num_k_folds}")
 
             write_to_file(general_dict['write_file_path'], f"Ending Experiment with fold: {n + 1} / {num_k_folds}\n\n")
-    elif general_dict["experiment_type"] == "loading":
-        path = "/home/tvetern/datasets/Results/2023_02_23_13_48_34/models/keras_model"
-
-        metrics = {"mcc": mcc, "specificity": specificity, "recall": recall, "f1": f1, "precision": precision}
-        model = load_model(path, custom_objects=metrics)
-
-        test_x, _, _ = load_time_series_dataset(participant_list=test_set_list[0][0:1],
-                                                data_dict=data_dict,
-                                                datapoints_per_window=time_dict['num_datapoints_per_window'],
-                                                number_of_windows=time_dict['num_windows'],
-                                                starting_point=time_dict['start_point'],
-                                                conv2d=False)
     else:
         raise ValueError(f"Experiment type is not recognized : {general_dict['experiment_type']}!")

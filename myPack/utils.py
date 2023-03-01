@@ -8,7 +8,12 @@ import numpy
 from typing import Tuple
 import pickle
 import random
+
+from keras.models import load_model
 from scipy import stats
+from scipy.stats import sem
+
+from myPack.classifiers.keras_utils import mcc, specificity, recall, precision, f1
 
 sns.set_style(style="white")
 sns.set_theme()
@@ -16,15 +21,22 @@ sns.set_theme()
 meaning_of_life = 42  # Seeding the random function
 
 
+def load_keras_model(path):
+    metrics = {"mcc": mcc, "specificity": specificity, "recall": recall, "f1": f1, "precision": precision}
+    model = load_model(path, custom_objects=metrics)
+
+    return model
+
+
 def write_confidence_interval(metric, write_file_path, metric_name, alpha=0.05):
+
     sample_mean = np.mean(metric)
     sample_std = np.std(metric, ddof=1)
-
     n = len(metric)
 
     confidence_interval = 1 - alpha
 
-    t_value = stats.t.ppf((1 + confidence_interval / 2), df=n - 1)
+    t_value = stats.t.ppf((1 + confidence_interval) / 2, df=n - 1)
     margin_of_error = t_value * (sample_std / np.sqrt(n))
 
     lower_bound = sample_mean - margin_of_error
@@ -56,7 +68,7 @@ def plot_confidence_interval(histories: list, key: str, save_name: str, confiden
         n = len(data)
         m = np.mean(data, axis=1)
         std_err = sem(data, axis=1)
-        h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+        h = std_err * stats.t.ppf((1 + confidence) / 2, n - 1)
 
         start = m - h
         end = m + h

@@ -54,7 +54,7 @@ class SUPERClassifier(abc.ABC):
         mcp_save = ModelCheckpoint(self._model_path + "weights.h5", save_best_only=True, verbose=0,
                                    save_weights_only=True)
         reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5,
-                                                      min_lr=0.00001)
+                                                      min_lr=0.0001)
         self._callbacks = (earlystop, csv_logger, mcp_save, reduce_lr)
 
         # Two models, self.model will be the last model after training, early stop model is the one with the suggested
@@ -137,7 +137,7 @@ class SUPERClassifier(abc.ABC):
         if acc_temp >= acc_model:
             self._temp_model.save_weights(self._model_path + self._save_name + "_best_weights.h5")
         else:
-            self._model.save_weights(self._model_path + self._save_name + "best_weights.h5")
+            self._model.save_weights(self._model_path + self._save_name + "_best_weights.h5")
 
     def fit(self, train_generator, validation_generator, plot_test_acc=False, save_raw=False):
         history = self._model.fit(x=train_generator, validation_data=validation_generator, epochs=self._epochs,

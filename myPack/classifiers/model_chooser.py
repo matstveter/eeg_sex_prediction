@@ -22,13 +22,13 @@ def get_model(which_model: str, model_dict: dict, hyper_dict: dict, general_dict
         else:
             model_object = InceptionTime(**sim_args, depth=depth)
     elif which_model == "inception_mc":
-        model_object = InceptionTime(**sim_args, depth=4, add_dense=(64, 4))
+        model_object = InceptionTime(**sim_args, depth=4, add_dense=(64, 8))
     elif which_model == "inception_deeper":
         model_object = InceptionTime(**sim_args, depth=8)
     elif which_model == "eegNet":
         model_object = EEGnet(**sim_args)
     elif which_model == "eegNet_MC":
-        model_object = EEGnet(**sim_args, add_dense=(64, 4))
+        model_object = EEGnet(**sim_args, add_dense=(64, 8))
     elif which_model == "eegNet_less_drop":
         model_object = EEGnet(**sim_args, dropout_rate=0.25)
     elif which_model == "eegNet_deeper":
