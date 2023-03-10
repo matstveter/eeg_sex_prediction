@@ -1,4 +1,6 @@
 from keras.models import load_model
+import keras.backend
+import gc
 
 from myPack.classifiers.model_chooser import get_model
 from myPack.data.data_handler import create_k_folds, get_all_data_and_generators, load_time_series_dataset
@@ -88,7 +90,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                                                      test_set_generator=test_generator,
                                                      test_dict=test_set_dict,
                                                      write_file_path=general_dict['write_file_path'])
-            eval_metrics['training_history'] = training_history
+            eval_metrics['training_history'] = training_history.history
 
             # Store in lists for easier calculation of confidence intervals afterwards
             accuracy.append(eval_metrics['accuracy'])
@@ -113,6 +115,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                 eval_metrics['ensemble_performance_subject'] = per_subject
                 eval_metrics['ensemble_performance_sample'] = per_sample
                 eval_metrics['effective_windows'] = eff_windows
+                write_to_file(general_dict['write_file_path'], f"Effective Window Results: {eff_windows}")
                 ensemble_subject_accuracy.append(per_subject)
                 ensemble_sample_accuracy.append(per_sample)
 
@@ -179,7 +182,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                                                          test_set_generator=test_generator,
                                                          test_dict=test_set_dict,
                                                          write_file_path=general_dict['write_file_path'])
-                eval_metrics['training_history'] = training_history
+                eval_metrics['training_history'] = training_history.history
 
                 # Store in lists for easier calculation of confidence intervals afterwards
                 accuracy.append(eval_metrics['accuracy'])
@@ -199,6 +202,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
             ensemble_metrics['ensemble_performance_subject'] = per_subject
             ensemble_metrics['ensemble_performance_sample'] = per_sample
             ensemble_metrics['effective_windows'] = eff_windows
+            write_to_file(general_dict['write_file_path'], f"Effective Window Results: {eff_windows}")
 
             ensemble_subject_accuracy.append(per_subject)
             ensemble_sample_accuracy.append(per_sample)
@@ -212,6 +216,11 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
             write_confidence_interval(metric=area_under_curve, write_file_path=general_dict['write_file_path'],
                                       metric_name="AUC")
             write_to_file(general_dict['write_file_path'], f"Ending Experiment with fold: {n + 1} / {num_k_folds}\n\n")
+            save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name=f"metrics_dictionary_run_{n}")
+
+            _ = gc.collect()
+            keras.backend.clear_session()
+            test_set_dict = None
 
         save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
         write_to_file(general_dict['write_file_path'], f"\n\n\nConfidence Intervals Ensembles: ", also_print=False)
@@ -220,6 +229,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
         write_confidence_interval(metric=ensemble_sample_accuracy,
                                   write_file_path=general_dict["write_file_path"], metric_name="Per Sample:")
     elif general_dict["experiment_type"] == "depth_ensemble":
+
         for n in range(num_k_folds):
             write_to_file(general_dict['write_file_path'], f"Starting Experiment with fold: {n + 1} / {num_k_folds}")
 
@@ -243,8 +253,10 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
             accuracy = []
             majority_accuracy = []
             area_under_curve = []
-
-            depths = [2, 4, 6, 8, 10]
+            if model_dict['apply_mc']:
+                depths = [2, 4, 6, 8, 10]
+            else:
+                depths = [3, 5, 7, 9, 11]
             for d in depths:
                 write_to_file(general_dict['write_file_path'], f"Starting depth_ensemble: {d}")
 
@@ -265,7 +277,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                                                          test_set_generator=test_generator,
                                                          test_dict=test_set_dict,
                                                          write_file_path=general_dict['write_file_path'])
-                eval_metrics['training_history'] = training_history
+                eval_metrics['training_history'] = training_history.history
 
                 # Store in lists for easier calculation of confidence intervals afterwards
                 accuracy.append(eval_metrics['accuracy'])
@@ -283,6 +295,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
             ensemble_metrics['ensemble_performance_subject'] = per_subject
             ensemble_metrics['ensemble_performance_sample'] = per_sample
             ensemble_metrics['effective_windows'] = eff_windows
+            write_to_file(general_dict['write_file_path'], f"Effective Window Results: {eff_windows}")
 
             ensemble_subject_accuracy.append(per_subject)
             ensemble_sample_accuracy.append(per_sample)
@@ -296,7 +309,11 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
             write_confidence_interval(metric=area_under_curve, write_file_path=general_dict['write_file_path'],
                                       metric_name="AUC")
 
+            save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name=f"metrics_dictionary_run_{n}")
             write_to_file(general_dict['write_file_path'], f"Ending Experiment with fold: {n + 1} / {num_k_folds}\n\n")
+            _ = gc.collect()
+            keras.backend.clear_session()
+            test_set_dict = None
         save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
         write_to_file(general_dict['write_file_path'], f"\n\n\nConfidence Intervals Ensembles: ", also_print=False)
         write_confidence_interval(metric=ensemble_subject_accuracy,
@@ -367,7 +384,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                                                          test_set_generator=test_generator,
                                                          test_dict=test_set_dict,
                                                          write_file_path=general_dict['write_file_path'])
-                eval_metrics['training_history'] = training_history
+                eval_metrics['training_history'] = training_history.history
 
                 # Store in lists for easier calculation of confidence intervals afterwards
                 accuracy.append(eval_metrics['accuracy'])
@@ -387,6 +404,7 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
             ensemble_metrics['ensemble_performance_subject'] = per_subject
             ensemble_metrics['ensemble_performance_sample'] = per_sample
             ensemble_metrics['effective_windows'] = eff_windows
+            write_to_file(general_dict['write_file_path'], f"Effective Window Results: {eff_windows}")
 
             ensemble_subject_accuracy.append(per_subject)
             ensemble_sample_accuracy.append(per_sample)
@@ -399,7 +417,11 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                                       metric_name="Majority Voting")
             write_confidence_interval(metric=area_under_curve, write_file_path=general_dict['write_file_path'],
                                       metric_name="AUC")
+            save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name=f"metrics_dictionary_run_{n}")
             write_to_file(general_dict['write_file_path'], f"Ending Experiment with fold: {n + 1} / {num_k_folds}\n\n")
+            _ = gc.collect()
+            keras.backend.clear_session()
+            test_set_dict = None
 
         # Saving and calculating ensemble performance in terms of confidence intervals
         save_to_pkl(data_dict=metrics_dictionary, path=general_dict['fig_path'], name="metrics_dictionary")
