@@ -11,8 +11,6 @@ import random
 
 from keras.models import load_model
 from scipy import stats
-from scipy.stats import sem
-
 from myPack.classifiers.keras_utils import mcc, specificity, recall, precision, f1
 
 sns.set_style(style="white")
@@ -20,24 +18,58 @@ sns.set_theme()
 
 meaning_of_life = 42  # Seeding the random function
 
-
 def load_keras_model(path):
+    """
+    Loads a Keras model from the specified path.
+
+    Args:
+        path (str): The path to the saved Keras model file.
+
+    Returns:
+        keras.models.Model: The loaded Keras model.
+
+    """
+    # Define custom metrics
     metrics = {"mcc": mcc, "specificity": specificity, "recall": recall, "f1": f1, "precision": precision}
+
+    # Load the Keras model with custom metrics
     model = load_model(path, custom_objects=metrics)
+
     return model
 
 
 def write_confidence_interval(metric, write_file_path, metric_name, alpha=0.05):
+    """
+    Calculates the confidence interval of a given metric.
 
+    Args:
+        write_file_path: Where the file si
+        metric_name: which metric
+        metric (array-like): Array or list of numeric values representing the metric.
+        alpha (float, optional): Significance level for the confidence interval. Defaults to 0.05.
+
+    Returns:
+        tuple: A tuple containing the lower bound and upper bound of the confidence interval.
+
+    """
+
+    # Calculate sample mean and sample standard deviation
     sample_mean = np.mean(metric)
     sample_std = np.std(metric, ddof=1)
+
+    # Get the number of samples
     n = len(metric)
 
+    # Calculate the confidence interval level
     confidence_interval = 1 - alpha
 
+    # Calculate the t-value based on the confidence interval and degrees of freedom
     t_value = stats.t.ppf((1 + confidence_interval) / 2, df=n - 1)
+
+    # Calculate the margin of error
     margin_of_error = t_value * (sample_std / np.sqrt(n))
 
+    # Calculate the lower and upper bounds of the confidence interval
     lower_bound = sample_mean - margin_of_error
     upper_bound = sample_mean + margin_of_error
 
@@ -48,58 +80,16 @@ def write_confidence_interval(metric, write_file_path, metric_name, alpha=0.05):
                                                           f"{upper_bound:.3f}]", also_print=False)
 
 
-def plot_confidence_interval(histories: list, key: str, save_name: str, confidence: float = 0.95) -> None:
-    """
-    Plots confidence intervals for "key" over multiple runs
-    Args:
-        histories: list of history objects
-        key: "loss", "accuracy",
-        confidence: 0.95 for 0.95 confidence interval
-        include_val: Include validation in the same plot
-        save_name: where to save the plot
-
-    Returns:
-        None
-    """
-
-    def _plot_conf(data):
-        data = np.array(data).T
-        n = len(data)
-        m = np.mean(data, axis=1)
-        std_err = sem(data, axis=1)
-        h = std_err * stats.t.ppf((1 + confidence) / 2, n - 1)
-
-        start = m - h
-        end = m + h
-        return n, start, end, m
-
-    train = [np.array(history.history[key]) for history in histories]
-    val = [np.array(history.history["val_" + key]) for history in histories]
-
-    n1, s1, e1, m1 = _plot_conf(train)
-    n2, s2, e2, m2 = _plot_conf(val)
-
-    plt.plot(m1, color="darkorange")
-    plt.plot(m2, color="blue")
-    plt.legend(['Train', 'Val'], loc="upper right")
-
-    plt.fill_between(range(n1), s1, e1, alpha=0.2, color="orange")
-    plt.fill_between(range(n2), s2, e2, alpha=0.2, color="mediumblue")
-
-    plt.ylabel(key.upper())
-    plt.xlabel("Epochs")
-    plt.title(f"Confidence {confidence} for {key.upper()}")
-    if key == "mcc":
-        plt.ylim(-1.0, 1.0)
-    elif key == "loss":
-        pass
-    else:
-        plt.ylim(0.0, 1.0)
-    plt.savefig(save_name + key + "_conf_plot.png")
-    plt.close()
-
-
 def plot_accuracy(history, fig_path, save_name):
+    """
+        Plots and saves various evaluation metrics based on the training history of a model.
+
+        Args:
+            history (keras.callbacks.History): The training history object of a model.
+            fig_path (str): The path where the figures will be saved.
+            save_name (str): The base name for the saved figures.
+
+    """
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
     plt.title("Model Accuracy")

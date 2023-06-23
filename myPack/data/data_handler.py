@@ -55,12 +55,14 @@ class DataGenerator(keras.utils.Sequence):
             if self._time_slice * self._num_windows > data.shape[1]:
                 print(f"Skipping participant due to missing data: {p} {data.shape}")
                 continue
-            data_am = 2
+            data_len_for_training = 2
 
-            if self._train and (self._start + (self._time_slice * self._num_windows * data_am)) <= data.shape[1]:
-                temp_data = data[:, self._start: (self._start + (self._num_windows * self._time_slice * data_am))]
+            if self._train and (self._start + (self._time_slice * self._num_windows * data_len_for_training)) \
+                    <= data.shape[1]:
+                temp_data = data[:, self._start: (self._start + (self._num_windows * self._time_slice *
+                                                                 data_len_for_training))]
                 temp_data = np.array(np.array_split(temp_data, (temp_data.shape[1] / self._time_slice), axis=1))
-                temp_data = temp_data[::data_am]
+                temp_data = temp_data[::data_len_for_training]
             else:
                 temp_data = data[:, self._start: (self._start + (self._num_windows * self._time_slice))]
                 temp_data = np.array(np.array_split(temp_data, temp_data.shape[1] / self._time_slice, axis=1))
@@ -112,12 +114,6 @@ def get_all_data_and_generators(*, data_dict: dict, time_dict: dict, batch_size,
     # ---- FUNCTION PARAMETERS ---- #
     num_test_windows = 40  # Number of windows for the test set
     # ----------------------------- #
-
-    # Creating a split
-    # if train_id is None:
-    #     print("NOT RUNNING K-FOLD TRAINING SET")
-    #     train_id, val_id, test_id = create_split_from_dict(data_dict)
-    #     print(f"Train ID: {len(train_id)}, Val ID: {len(val_id)}, Test ID: {len(test_id)}")
 
     if only_test:
         train_id = train_id[0:2]
@@ -182,74 +178,38 @@ def get_all_data_and_generators(*, data_dict: dict, time_dict: dict, batch_size,
     return training_generator, validation_generator, test_generator, test_dict, model_shape
 
 
-def create_split_from_dict(data_dict: dict, data_split=None, k_fold=False):
+def create_split_from_dict(data_dict: dict):
     """
-    Function that receives a dictionary and creates (depending on the predictions) a balanced train/test/val split
+    Divides the male and female to two lists
 
     data_dict = dictionary containing data
-    data_split = None if no split is selected, then it will be done automatically according to the number of subjects
-    k_fold = if this function should only return the sub id for females and males respectively
 
     Returns:
-        train, test, val : list = Containing subject keys
+        female, male list
     """
-
-    if data_split is None:
-        if len(list(data_dict.keys())) > 2000:
-            split = [0.6, 0.2, 0.2]
-        else:
-            split = [0.6, 0.2, 0.2]
-    else:
-        split = data_split
-
     male = list()
     female = list()
 
+    # Divide the different sex'es into two lists
     for k, v in data_dict.items():
         if v["Sex"] == 1:
             female.append(k)
         else:
             male.append(k)
 
+    # Clip the list to make the number of subjects equal
     if len(male) != len(female):
         if len(male) > len(female):
-            # temp = male
             male = male[0:len(female)]
-            # extra_data = temp[len(female):]
         else:
-            # temp = female
             female = female[0:len(male)]
-            # extra_data = temp[len(male):]
 
-    if k_fold:
-        random.seed(meaning_of_life)
-        random.shuffle(female)
-        random.shuffle(male)
-        return female, male
-
-    num_participants = len(male) + len(female)
-    print(f"Total number of subjects used: {num_participants}")
-
-    num_train = int((split[0] * num_participants) / 2)
-    num_val = int((split[1] * num_participants) / 2)
-
-    # random.seed(meaning_of_life)
-    random.shuffle(male)
+    # Shuffle the lists, using the seed function
+    random.seed(meaning_of_life)
     random.shuffle(female)
+    random.shuffle(male)
+    return female, male
 
-    train = male[0:num_train] + female[0:num_train]
-    val = male[num_train:num_train + num_val] + female[num_train: num_train + num_val]
-    test = male[num_train + num_val:] + female[num_train + num_val:]
-
-    random.shuffle(train)
-    random.shuffle(val)
-    random.shuffle(test)
-
-    assert len(list(set(train).intersection(set(val)))) == 0, "ID exists in both train and val"
-    assert len(list(set(train).intersection(set(test)))) == 0, "ID exists in both train and test"
-    assert len(list(set(test).intersection(set(val)))) == 0, "ID exists in both val and test"
-
-    return train, val, test
 
 
 def load_time_series_dataset(participant_list, data_dict, datapoints_per_window, number_of_windows=None,
@@ -283,27 +243,22 @@ def load_time_series_dataset(participant_list, data_dict, datapoints_per_window,
             print(f"Participant: {p} -> Not found")
             continue
 
+        # Check that the amount of data per participants match the config file
         if number_of_windows is not None and starting_point + (datapoints_per_window * number_of_windows) > data.shape[
             1]:
             print(f"Data Shape: {data.shape}, not included, skipping...")
             skipped_participants.append(p)
             continue
 
-        if number_of_windows is not None:
-            data = data[:, starting_point:starting_point + (datapoints_per_window * number_of_windows)]
-        else:
-            if data.shape[1] % datapoints_per_window != 0:
-                data = data[:, starting_point: starting_point + (int(data.shape[1] -
-                                                                     int(data.shape[1] % datapoints_per_window)))]
-
+        data = data[:, starting_point:starting_point + (datapoints_per_window * number_of_windows)]
         temp_data = np.array(np.array_split(data, data.shape[1] / datapoints_per_window, axis=1))
 
-        # Should not be done if 1D convolution?
+        # Should not be done if 1D convolution
         if conv2d:
             temp_data = np.expand_dims(temp_data, axis=3)
 
+        # Store data in dictionary
         temp_dict = {"data": temp_data, 'label': data_dict[p]["Sex"], 'Age': data_dict[p]['Age']}
-
         new_dict[p] = temp_dict
 
         if not only_dict:
@@ -316,6 +271,7 @@ def load_time_series_dataset(participant_list, data_dict, datapoints_per_window,
                 data_list = np.concatenate((data_list, temp_data), axis=0)
 
         if len(participant_list) > 10:
+            # Only use the bar if the number of subject is more than 10
             pbar.update()
 
     if not only_dict:
@@ -327,6 +283,20 @@ def load_time_series_dataset(participant_list, data_dict, datapoints_per_window,
 
 
 def create_k_folds(*, data_dict: dict, num_folds=5):
+    """
+    Creates k-fold splits of subjects from a given data dictionary.
+
+    Args:
+        data_dict (dict): A dictionary containing subject data.
+        num_folds (int, optional): The number of folds to create. Defaults to 5.
+
+    Returns:
+        tuple: A tuple containing lists of subjects for training, validation, and testing.
+
+    Raises:
+        AssertionError: If any subject appears in multiple folds.
+
+    """
     def duplicate_check(subs: list) -> None:
         """ Asserts that no subjects exists within several of the folds
         Args:
@@ -344,7 +314,7 @@ def create_k_folds(*, data_dict: dict, num_folds=5):
         print(f"K-Fold Sizes: {batch_len} = {sum(batch_len)} -> No duplicates within the folds found!")
 
     # Get two lists, containing females and males separately
-    female, male = create_split_from_dict(data_dict=data_dict, k_fold=True)
+    female, male = create_split_from_dict(data_dict=data_dict)
 
     # Find the length of each batch based on the length of either male and female divided by num_folds
     num_per_batch = len(female) // num_folds
@@ -352,6 +322,7 @@ def create_k_folds(*, data_dict: dict, num_folds=5):
     # Pre-create the generators -> train(3 batches), validation(1 batch), test(1 batch)
     subject_batch = []
 
+    # Create the batches of subjects for each fold
     for i in range(num_folds):
         start_idx = i * num_per_batch
         end_idx = start_idx + num_per_batch

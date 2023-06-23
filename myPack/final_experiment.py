@@ -1,20 +1,9 @@
 import os
-
 import keras.backend
 import gc
-# import deeplift
-# import deeplift.conversion.kerasapi_conversion as kc
-# import innvestigate
-# import tensorflow as tf
-#
-# tf.compat.v1.disable_eager_execution()
-#
-# import numpy as np
-# from matplotlib import pyplot as plt
-# from matplotlib.collections import LineCollection
 
 from myPack.classifiers.model_chooser import get_model
-from myPack.data.data_handler import create_k_folds, get_all_data_and_generators, load_time_series_dataset
+from myPack.data.data_handler import create_k_folds, get_all_data_and_generators
 from myPack.eval.performance_evaluation import evaluate_ensembles, evaluate_majority_voting
 from myPack.utils import save_to_pkl, write_confidence_interval, write_to_file, load_keras_model
 
@@ -66,9 +55,6 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
         accuracy = []
         majority_accuracy = []
         area_under_curve = []
-
-        # Used for saving the best model across the cross-validation
-        best_model_performance = 0
 
         for n in range(num_k_folds):
             write_to_file(general_dict['write_file_path'], f"Starting Experiment with fold: {n + 1} / {num_k_folds}")
@@ -528,127 +514,5 @@ def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, t
                                   write_file_path=general_dict["write_file_path"], metric_name="Per Subject:")
         write_confidence_interval(metric=ensemble_sample_accuracy,
                                   write_file_path=general_dict["write_file_path"], metric_name="Per Sample:")
-    elif general_dict["experiment_type"] == "explanations":
-
-        pass
-        # path = "/home/tvetern/datasets/explain/single_EEGNet/"
-        # full_path = os.path.join(path, f"models/keras_model")
-        # model = load_keras_model(full_path)
-        #
-        #
-        # # Convert the Keras functional model to a sequential model
-        # config = model.get_config()
-        # new_model = keras.models.Sequential.from_config(config)
-        # new_model.set_weights(model.get_weights())
-        #
-        # # Convert the Keras Sequential model to DeepLIFT format
-        # converted_model = kc.convert_model_from_saved_files(
-        #     "/home/tvetern/datasets/explain/modelseq.h5",
-        #     nonlinear_mxts_mode=deeplift.layers.NonlinearMxtsMode.DeepLIFT_GenomicsDefault
-        # )
-
-        # # Convert the sequential model to DeepLIFT format
-        # converted_model = kc.convert_sequential_model(
-        #     new_model,
-        #     nonlinear_mxts_mode=deeplift.layers.NonlinearMxtsMode.DeepLIFT_GenomicsDefault
-        # )
-        #
-        #
-        #
-        #
-        #
-        #
-        # for n in range(num_k_folds):
-        #     write_to_file(general_dict['write_file_path'], f"Starting Experiment with fold: {n + 1} / {num_k_folds}")
-        #     _, _, test_generator, test_set_dict, model_shape = \
-        #         get_all_data_and_generators(data_dict=data_dict,
-        #                                     time_dict=time_dict,
-        #                                     batch_size=hyper_dict['batch_size'],
-        #                                     train_id=train_set_list[n],
-        #                                     val_id=val_set_list[n],
-        #                                     test_id=test_set_list[n],
-        #                                     use_conv2d=model_dict['use_conv2d'],
-        #                                     only_test=general_dict['testing'],
-        #                                     load_test_dict=True)
-        #     model_dict['input_shape'] = model_shape
-        #     datas = list()
-        #     for k, v in test_set_dict.items():
-        #         data = v['data']
-        #         label = v['label']
-        #         print(label)
-        #
-        #         eval_gradients(model, data, index=1, analyzer_type="input_t_gradient")
-        #
-        #     break
-        #
-        #
-        #
     else:
         raise ValueError(f"Experiment type is not recognized : {general_dict['experiment_type']}!")
-
-
-# def eval_gradients(model, data, index, analyzer_type="input_t_gradient", cmap='coolwarm'):
-#     # All possible names are: ['input', 'random', 'gradient', 'gradient.baseline', 'input_t_gradient',
-#     analyzer = innvestigate.create_analyzer(analyzer_type, model)
-#     x = np.expand_dims(data[index:index + 1], axis=3)
-#     a = analyzer.analyze(x)
-#
-#     gradient_image = np.squeeze(a, axis=0)
-#     data = data[0]
-#
-#     # Manually scale the data array to the range [-1,1]
-#     data = 2 * (data - np.min(data)) / (np.max(data) - np.min(data)) - 1
-#
-#     # Manually scale the gradient image to the range [-1,1]
-#     gradient_image = 2 * (gradient_image - np.min(gradient_image)) / (
-#             np.max(gradient_image) - np.min(gradient_image)) - 1
-#
-#     y_sep = 0.05  # Adjust this value to change the vertical separation between time series
-#
-#     # Create the figure and axes
-#     fig, ax = plt.subplots(figsize=(20, 16))
-#
-#     for i in range(data.shape[0]):
-#         y_offset = i * y_sep
-#
-#         # Create a set of line segments so that we can color them individually
-#         # This creates the points as a N x 1 x 2 array so that we can stack points
-#         # together easily to get the segments
-#         x_values = np.arange(0, data.shape[1])
-#         y_values = data[i] + y_offset
-#         points = np.array([x_values, y_values]).T.reshape(-1, 1, 2)
-#         segments = np.concatenate([points[:-1], points[1:]], axis=1)
-#
-#         # Create a continuous norm to map from data points to colors
-#         norm = plt.Normalize(gradient_image[i].min(), gradient_image[i].max())
-#         lc = LineCollection(segments, cmap=cmap, norm=norm)
-#
-#         # Set the values used for colormapping
-#         lc.set_array(gradient_image[i].ravel())  # flatten the array to 1D
-#         lc.set_linewidth(2)
-#         line = ax.add_collection(lc)
-#
-#     # Set the y-axis ticks and labels
-#     yticks = np.arange(0, data.shape[0] * y_sep, y_sep)
-#     yticklabels = np.arange(1, data.shape[0] + 1)
-#     ax.set_yticks(yticks)
-#     ax.set_yticklabels(yticklabels, fontsize=6)
-#
-#     # Set the x-axis limits and ticks
-#     ax.set_xlim(0, data.shape[1] - 1)
-#     ax.set_xticks(np.arange(0, data.shape[1], 100))  # Adjust the step size of x-axis ticks as needed
-#
-#     # Set the x-axis label, y-axis label, and plot title
-#     ax.set_xlabel('Time')
-#     ax.set_ylabel('Channel')
-#     ax.set_title('Time Series Plot')
-#
-#     # Add a grid
-#     ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.5)
-#     # Adding a colorbar
-#     cb = fig.colorbar(line, ax=ax)
-#     cb.set_label('Gradient')
-#
-#     # Display the plot
-#     plt.show()
-
