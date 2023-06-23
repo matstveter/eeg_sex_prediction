@@ -8,7 +8,7 @@ def get_model(which_model: str, model_dict: dict, hyper_dict: dict, general_dict
                 'save_path': general_dict['model_path'],
                 'fig_path': general_dict['fig_path'],
                 'save_name': which_model + "_" + model_name,
-                'logits': model_dict['model_with_logits'],
+                'logits': False,
                 'batch_size': hyper_dict['batch_size'],
                 'epochs': hyper_dict['epochs'],
                 'patience': hyper_dict['patience'],
@@ -23,18 +23,6 @@ def get_model(which_model: str, model_dict: dict, hyper_dict: dict, general_dict
             model_object = InceptionTime(**sim_args, depth=depth)
     elif which_model == "inception_mc":
         model_object = InceptionTime(**sim_args, depth=4, add_dense=(64, 8))
-    elif which_model == "inception_delta":
-        model_object = InceptionTime(**sim_args, depth=4, kernel_sizes=(1, 2, 4))
-    elif which_model == "inception_theta":
-        model_object = InceptionTime(**sim_args, depth=4, kernel_sizes=(4, 6, 8))
-    elif which_model == "inception_alpha":
-        model_object = InceptionTime(**sim_args, depth=4, kernel_sizes=(8, 10, 12))
-    elif which_model == "inception_lowbeta":
-        model_object = InceptionTime(**sim_args, depth=4, kernel_sizes=(12, 16, 20))
-    elif which_model == "inception_highbeta":
-        model_object = InceptionTime(**sim_args, depth=4, kernel_sizes=(20, 24, 30))
-    elif which_model == "inception_gamma":
-        model_object = InceptionTime(**sim_args, depth=4, kernel_sizes=(30, 34, 40))
     elif which_model == "inception_mc2":
         model_object = InceptionTime(**sim_args, depth=4, add_dense=32)
     elif which_model == "inception_deeper":
