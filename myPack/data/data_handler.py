@@ -122,7 +122,7 @@ def get_all_data_and_generators(*, data_dict: dict, time_dict: dict, batch_size,
     if only_test:
         train_id = train_id[0:2]
         val_id = val_id[0:1]
-        test_id = test_id[0:1]
+        test_id = test_id[0:4]
 
     training_generator = DataGenerator(list_IDs=train_id,
                                        data_dict=data_dict,

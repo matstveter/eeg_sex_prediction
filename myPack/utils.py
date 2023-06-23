@@ -24,7 +24,6 @@ meaning_of_life = 42  # Seeding the random function
 def load_keras_model(path):
     metrics = {"mcc": mcc, "specificity": specificity, "recall": recall, "f1": f1, "precision": precision}
     model = load_model(path, custom_objects=metrics)
-
     return model
 
 

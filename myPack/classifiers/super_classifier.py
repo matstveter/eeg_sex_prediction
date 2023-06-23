@@ -46,11 +46,11 @@ class SUPERClassifier(abc.ABC):
                          tf.keras.metrics.AUC(from_logits=self._logits))
 
         # Callbacks
-        self._monitor = "val_loss"  # Could also be val_loss
+        self._monitor = "val_loss"
         earlystop = EarlyStopping(monitor=self._monitor, patience=patience, verbose=True, mode="auto")
         csv_logger = CSVLogger(self._model_path + "training.csv", append=True)
 
-        # Standard is val_loss
+
         mcp_save = ModelCheckpoint(self._model_path + "weights.h5", save_best_only=True, verbose=0,
                                    save_weights_only=True)
         reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5,
