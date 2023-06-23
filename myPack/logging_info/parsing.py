@@ -25,16 +25,20 @@ def time_configparser(conf_file):
     general_dict = dict()
 
     model_dict['model_name'] = config.get('MODEL', 'model_name')
-    model_dict['model_with_logits'] = config.getboolean('MODEL', 'model_with_logits')
     model_dict['apply_mc'] = config.getboolean('MODEL', 'monte_carlo_dropout')
     model_dict['output_shape'] = 1
-    model_dict['use_conv2d'] = config.getboolean('MODEL', 'conv2d')
+
+    if "inception" in model_dict['model_name']:
+        model_dict['use_conv2d'] = False
+    else:
+        model_dict['use_conv2d'] = True
 
     hyper_dict['epochs'] = config.getint('HYPERPARAMETER', 'epochs')
     hyper_dict['patience'] = config.getint('HYPERPARAMETER', 'patience')
     hyper_dict['batch_size'] = config.getint('HYPERPARAMETER', 'batch_size')
     hyper_dict['lr'] = config.getfloat('HYPERPARAMETER', 'lr')
     hyper_dict['kernel_init'] = config.get('HYPERPARAMETER', 'kernel_init')
+    hyper_dict['dropout'] = config.getfloat('HYPERPARAMETER', 'dropout')
 
     time_dict['srate'] = config.getint('TIME', 'sampling_rate')
     time_dict['num_windows'] = config.getint('TIME', 'num_windows')
@@ -42,19 +46,21 @@ def time_configparser(conf_file):
     time_dict['start_point'] = int(config.getfloat('TIME', 'starting_seconds') * time_dict['srate'])
     time_dict['train_set_every_other'] = config.getboolean('TIME', 'training_set_every_other_window')
 
-    general_dict['test_mode'] = config.getboolean('GENERAL', 'test_mode')
+    general_dict['save_path'] = config.get('GENERAL', 'result_save_path')
     general_dict['experiment_type'] = config.get('GENERAL', 'experiment_type')
-
-    hyper_dict['dropout'] = 0.5
-    hyper_dict['cnn_dropout'] = 0.1
-    general_dict['save_path'] = "/home/tvetern/datasets/Results/"
 
     return model_dict, hyper_dict, time_dict, general_dict
 
 
 def _argparse():
     """
-    Function to handle input arguments from terminal window
+    Function to handle command-line arguments:
+
+    --conf refers to the config.ini file with all model and time-series parameters
+    --dict path to the labels.plk file created with the dataset_creator.py script
+    --test only use a few subjects to test that the code runs
+
+    return the arguments
     """
     parser = argparse.ArgumentParser(description="Model Run")
     parser.add_argument('--conf', type=str, required=True,  help="Path to config")
@@ -70,17 +76,21 @@ def setup_run():
     """
     arg = _argparse()
     model_dict, hyper_dict, time_dict, general_dict = time_configparser(arg.conf)
-
     general_dict['testing'] = arg.test
 
-    if arg.test:
+    if general_dict['testing']:
+        # If the test flag is active, reduce the number of epochs
         hyper_dict['epochs'] = 4
 
+    # Creates a folder and copy the config file used in this run to the folder
     general_dict['save_path'], general_dict['fig_path'], general_dict['model_path'] = \
         create_run_folder(general_dict['save_path'])
     shutil.copyfile(arg.conf, general_dict['save_path'] + arg.conf)
+
+    # Load the pkl file containig eeg file paths and all information about the subjects
     data_dict = load_pkl(arg.dict)
 
+    # metrics and info is where the main metrics and information will be saved.
     general_dict['write_file_path'] = general_dict['save_path'] + "metrics_and_info.txt"
     f = open(general_dict['write_file_path'], "w")
     f.write(f"Conf: {arg.conf}\nDataset: {arg.dict}\n")
