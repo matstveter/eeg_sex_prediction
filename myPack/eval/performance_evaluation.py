@@ -6,20 +6,34 @@ import keras.backend
 from sklearn.metrics import accuracy_score
 
 from myPack.classifiers.keras_utils import apply_sigmoid_probs_and_classify
-from myPack.utils import create_folder, write_to_file
+from myPack.utils import write_to_file
 
 
 def evaluate_majority_voting(model_object, test_dict: dict):
+    """
+    Performs evaluation using majority voting on a given model for a test dataset.
+
+    Args:
+        model_object: The model object used for evaluation.
+        test_dict (dict): A dictionary containing the test dataset.
+
+    Returns:
+        tuple: A tuple containing the accuracy, male accuracy, and female accuracy.
+
+    """
     subject_predicted_correctly = 0
     male_correct = 0
     female_correct = 0
 
+    # Iterate through each subject in the test dataset
     for subject, value in test_dict.items():
         data_x = np.array(value['data'])
         data_y = np.array([value['label']] * data_x.shape[0])
 
+        # Predict labels using the model and return evaluation metrics
         eval_metrics = model_object.predict(data=data_x, labels=data_y, return_metrics=True)
 
+        # Count the subjects predicted correctly
         if eval_metrics['accuracy'] > 0.5:
             subject_predicted_correctly += 1
 
@@ -28,6 +42,7 @@ def evaluate_majority_voting(model_object, test_dict: dict):
             else:
                 female_correct += 1
 
+    # Calculate and return the accuracy, male accuracy, and female accuracy
     return subject_predicted_correctly / len(list(test_dict.keys())), male_correct/ int(len(list(test_dict.keys()))/2), \
         female_correct / int(len(list(test_dict.keys()))/2)
 
@@ -45,6 +60,7 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
         test_dict: dictionary containing data and labels for each class
         write_file_path: path to the result txt file
         figure_path: where to save the figures
+        freq: if the input is a list of frequency ensemble
 
     Returns:
         ensemble_sample_majority
@@ -72,7 +88,6 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
 
         pred_list = list()
         class_probabilities = list()
-        auc_list = list()
         if model_ensemble:
             for m in model:
                 # Ensures that EEGNet and InceptionTime receives the correct shape
@@ -159,6 +174,15 @@ def evaluate_ensembles(model, test_dict: dict, write_file_path: str, figure_path
 
 
 def plot_window_selection_performance(window_dict: dict, total_number_subjects, figure_path):
+    """
+    Plots the performance evaluation of removing uncertain windows based on a window dictionary.
+
+    Args:
+        window_dict (dict): A dictionary containing the window evaluation results.
+        total_number_subjects (int): The total number of subjects in the dataset.
+        figure_path (str): The path where the figure will be saved.
+
+    """
     for k, v in window_dict.items():
         window_dict[k] = (v / total_number_subjects) * 100
 
@@ -194,6 +218,7 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
     keep_percentage_windows = [float(i) for i in keys]
     uncertain_samples = np.var(sigmoid_ensemble_predictions, axis=0)
 
+    # Combine uncertain_samples and the predictions in a list, so that we can sorrt both equally, then unzip them
     zipped_list = zip(list(uncertain_samples), list(prediction))
     sorted_list = sorted(zipped_list, key=lambda x: x[0])
     uncertain_samples, prediction = zip(*sorted_list)
@@ -203,6 +228,7 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
 
     # Loop through the list of the percentage of windows to be removed and eval the remaining windows and store in dict
     for k_percentage in keep_percentage_windows:
+        # Extract the percentage of windows that should be kept
         temp_pred = prediction[0: int(len(prediction) * k_percentage)]
         lab = [label_sub] * len(temp_pred)
 
@@ -215,160 +241,3 @@ def evaluate_effective_windows(sigmoid_ensemble_predictions, prediction, label_s
         res_dict[str(k_percentage)] = acc
 
     return res_dict, maj_dict
-
-
-# SUPPORTING FUNCTIONS FOR THE MAIN FUNCTION ABOVE #
-
-def get_predictive_entropy(probs: np.ndarray):
-    """ Calculated the predictive entropy from either a list of [1, 2] vectors or just a [1,2] vector
-    Args:
-        probs: numpy array with shape [1, 2] or more [N, 2]
-
-    Returns:
-        float: predictive entropy
-    """
-    return (-np.sum(probs * np.log(probs + 1e-12), axis=-1)) / np.log(2)
-
-
-def calculate_uncertainty_metrics(sigmoid_predictions):
-    """
-    Calculates variance and predictive entropy from the sigmoid predictions, the entropy expects a probability
-    distribution over the classes, so the sigmoid is transformed like this [class0, class1] = [1-sigmoid, sigmoid] and
-    then calculates the predictive entropy
-
-    Args:
-        sigmoid_predictions: Output from sigmoid (num_models, num_windows, 1)
-
-    Returns:
-        variance (num_windows, 1)
-        pred_entropy (num_windows, 1)
-    """
-    # Transforming sigmoid from a single number, to a probability distribution over the classes
-    prob_pos = np.copy(np.mean(sigmoid_predictions, axis=0))
-    prob_neg = 1 - prob_pos
-    class_prob_distribution = np.column_stack((prob_neg, prob_pos))
-
-    variance = np.var(sigmoid_predictions, axis=0)
-    pred_entropy = get_predictive_entropy(class_prob_distribution)
-
-    return variance, pred_entropy
-
-
-class UncertaintyPerSubject:
-
-    def __init__(self, sub_id, ensemble_predicted_probabilities: list, figure_path: str,
-                 ensemble_sample_correct: float, ensemble_subject_correct: float):
-        self._sub_id = sub_id
-
-        self._ensemble_predicted_probabilities = ensemble_predicted_probabilities
-        self._predicted_classes = keras.backend.round(np.mean(ensemble_predicted_probabilities, axis=0))
-        self._variance, self._predictive_entropy = calculate_uncertainty_metrics(ensemble_predicted_probabilities)
-
-        self._category_threshold = [np.array([1.0, 0.0]), np.array([0.95, 0.05]), np.array([0.9, 0.1]),
-                                    np.array([0.8, 0.2]), np.array([0.7, 0.3]), np.array([0.6, 0.4]),
-                                    np.array([0.5, 0.5])]
-        self._entropy_thresholds = [get_predictive_entropy(probs=c_prob) for c_prob in self._category_threshold]
-        self._figure_path = figure_path
-        self._class_distribution = None
-        self._get_class_distribution()
-
-        # Calculated outside the class
-        self._ensemble_sample_correct = ensemble_sample_correct
-        self._ensemble_subject_correct = ensemble_subject_correct
-
-        self._predictions_barplot()
-        self._get_window_prediction_distribution()
-
-    # ----------------#
-    # Properties      #
-    # ----------------#
-    @property
-    def variance(self):
-        return self._variance
-
-    @property
-    def predictive_entropy(self):
-        return self._predictive_entropy
-
-    # ----------------#
-    # End Properties  #
-    # ----------------#
-
-    def _get_class_distribution(self):
-        prob_pos = np.copy(np.mean(self._ensemble_predicted_probabilities, axis=0))
-        prob_neg = 1 - prob_pos
-        self._class_distribution = np.column_stack((prob_neg, prob_pos))
-
-    def _predictions_barplot(self):
-        """
-        Calculates the number of predicted classes from the average of the ensemble, and creates a barplot showing
-        how man windows were predicted as 0 and 1.
-
-        Returns:
-            classes: list of number of windows predicted as class0 or class1
-        """
-        female = list(self._predicted_classes).count(1)
-        male = list(self._predicted_classes).count(0)
-        classes = [male, female]
-        bars = ['Male', 'Female']
-        plt.bar(bars, classes, color=['#ff7f0e', '#1f77b4'])
-        plt.xlabel("Classes")
-        plt.ylabel("Num windows")
-        plt.title("Predictions")
-        plt.tight_layout()
-        plt.savefig(self._figure_path + self._sub_id + "_class_predictions.png")
-        plt.close()
-        return classes
-
-    def _get_window_prediction_distribution(self):
-        """
-        Creates a bar-plot with the uncertainty distribution according to the predictive entropy and saves
-        according to the figure path argument sent to the init path
-
-        Returns:
-            counter: number of windows per threshold
-            ranges: ranges
-        """
-        entropy_ranges = []
-        entropy_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
-        male_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
-        female_counts = [0 for _ in range(len(self._entropy_thresholds) - 1)]
-        barpl_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
-        bar_names = ['Very \nCertain', 'Certain', 'Moderat \nCertain', 'Uncertain', 'Very \nUncertain', 'Guessing']
-
-        for i in range(len(self._predictive_entropy)):
-            for j in range(len(self._entropy_thresholds) - 1):
-                if self._entropy_thresholds[j] <= self._predictive_entropy[i] < self._entropy_thresholds[j + 1]:
-                    entropy_ranges.append((self._entropy_thresholds[j], self._entropy_thresholds[j + 1]))
-                    entropy_counts[j] += 1
-
-                    if self._predicted_classes[i] == 1:
-                        female_counts[j] += 1
-                    else:
-                        male_counts[j] += 1
-                    break
-
-        assert sum(male_counts) + sum(female_counts) == sum(entropy_counts), "Missing data, number of female + male " \
-                                                                             "does not add up!"
-        X_axis = np.arange(len(bar_names))
-
-        plt.bar(X_axis - 0.2, female_counts, 0.4, label="Female")
-        plt.bar(X_axis + 0.2, male_counts, 0.4, label="Male")
-        plt.xticks(X_axis, bar_names)
-        plt.title("Certainty Distribution")
-        plt.xlabel("Degree of certain")
-        plt.ylabel("Num windows")
-        plt.legend(loc="upper left")
-        plt.tight_layout()
-        plt.savefig(self._figure_path + self._sub_id + "_certain_dist.png")
-        plt.close()
-
-        plt.bar(bar_names, entropy_counts, color=barpl_colors)
-        plt.xlabel("Degree of certain")
-        plt.ylabel("Num windows")
-        plt.title("Certainty Distribution")
-        plt.tight_layout()
-        plt.savefig(self._figure_path + self._sub_id + "_certain_all.png")
-        plt.close()
-
-        return entropy_ranges, entropy_counts

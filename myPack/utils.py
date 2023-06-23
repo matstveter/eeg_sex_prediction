@@ -1,4 +1,3 @@
-import csv
 import os
 import datetime
 import matplotlib.pyplot as plt

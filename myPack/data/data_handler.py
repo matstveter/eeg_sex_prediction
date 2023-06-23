@@ -312,7 +312,6 @@ def create_k_folds(*, data_dict: dict, num_folds=5):
                     raise AssertionError("Duplicate Subject found {}".format(value))
                 seen_values.add(value)
         print(f"K-Fold Sizes: {batch_len} = {sum(batch_len)} -> No duplicates within the folds found!")
-
     # Get two lists, containing females and males separately
     female, male = create_split_from_dict(data_dict=data_dict)
 
