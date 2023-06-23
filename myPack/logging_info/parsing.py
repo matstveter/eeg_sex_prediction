@@ -48,6 +48,21 @@ def time_configparser(conf_file):
 
     general_dict['save_path'] = config.get('GENERAL', 'result_save_path')
     general_dict['experiment_type'] = config.get('GENERAL', 'experiment_type')
+    
+    
+    # Do multiple checks on the config file to make sure that the experiments is run correctly:
+    if model_dict['apply_mc'] and general_dict['experiment_type'] != "single_model":
+        raise ValueError("If Monte Carlo is used, it only works with experiment type: 'single_models'")
+    elif general_dict['experiment_type'] == "ensemble_weights" and hyper_dict["kernel_init"] == "glorot_uniform":
+        raise ValueError(f"Ensemble weights chose, but kernel init is set to {hyper_dict['kernel_init']}, "
+                         f"should be random_normal or random_uniform")
+    elif general_dict["experiment_type"] == "depth_ensemble" and model_dict["model_name"] != "inception":
+        raise ValueError(f"Depth ensemble chosen, but with model: {model_dict['model_name']}, should be 'inception'!")
+    elif general_dict['experiment_type'] == "ensemble_models" and len(model_dict['model_name'].split(",")) < 2:
+        print("Ensemble Experiment chosen, but only one model is chosen, assumes that the model should be duplicated")
+        model_dict['model_name'] = f"{model_dict['model_name']},{model_dict['model_name']}," \
+                                   f"{model_dict['model_name']},{model_dict['model_name']}," \
+                                   f"{model_dict['model_name']}"
 
     return model_dict, hyper_dict, time_dict, general_dict
 
