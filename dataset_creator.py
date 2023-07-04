@@ -87,6 +87,11 @@ def main():
             raw.filter(l_freq=freqs[0], h_freq=freqs[1])
 
         temp_dict['numpy_path'] = os.path.join(data_folder, f)
+        if numpy.isnan(temp_dict['Age']):
+            print(f"Error: Subject has NaN values in their age: {f}")
+            missing_information.append(f)
+            pbar.update()
+            continue
         temp_dict['Age'] = int(temp_dict['Age'])
         try:
             temp_dict['Sex'] = int(temp_dict['Sex'])
