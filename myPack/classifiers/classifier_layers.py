@@ -1,3 +1,9 @@
+"""
+    This whole file was created during model architecture experimentation was done. This results in some methods
+    allowing for efficient and fast model generation.
+
+"""
+
 from typing import Union
 import keras
 import keras.losses
