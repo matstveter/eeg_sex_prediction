@@ -8,6 +8,9 @@ meaning_of_life = 42  # Used for seeding the random function
 
 
 class DataGenerator(keras.utils.Sequence):
+    """
+        Data-generator class that is compatible with keras fit function
+    """
     def __init__(self, list_IDs, data_dict, time_slice, train_set, batch_size, num_windows, start, conv2d,
                  shuffle=True):
 
