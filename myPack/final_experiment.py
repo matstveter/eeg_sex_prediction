@@ -38,6 +38,28 @@ def complete_model_evaluation(model_object, test_set_generator, test_dict, write
 
 
 def run_final_experiments(data_dict: dict, model_dict: dict, hyper_dict: dict, time_dict: dict, general_dict: dict):
+    """ This function performs the various experiments based on the experiment type. Starts by creating a list of the
+    different subjects in the different lists. Write to file, initialize dictionaries and list for results.
+    Depending on the experiments, loops through, creating new generators based on the k-fold, trains model, evaluates,
+    save model, save results and re-iterate.
+
+    If there are ensembles, the various models is saved, and after all models have been trained one k-fold, evaluate
+    the ensemble and calculate uncertainty
+
+    Tips for improvement:
+        - Save models during training, so that each model does not have to be trained multiple times. For example:
+        if InceptionTime is trained for "Single Model" experiment, use the same models for the model ensemble.
+
+    Args:
+        data_dict: Dictionary containing data and label information
+        model_dict: Dictionary with model specific information, needed for model creation
+        hyper_dict: Dictionary with hyperparameters
+        time_dict: Dictionary with EEG specific information, such as epoch length
+        general_dict: Usually paths and general stuff
+
+    Returns:
+        None
+    """
     num_k_folds = 5
     num_models_in_ensemble = 5
 
