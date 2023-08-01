@@ -99,6 +99,16 @@ class SUPERClassifier(abc.ABC):
     # ----------------#
 
     def _finish_model(self, input_to_model, x, output_shape):
+        """
+            Function that adds the last layers of the model, with compilation
+        Args:
+            input_to_model: input to the model
+            x: input to the last layer
+            output_shape: output shape of the model
+
+        Returns:
+            keras model
+        """
         if self._logits:
             custom_loss = keras.losses.BinaryCrossentropy(from_logits=True)
             out = keras.layers.Dense(output_shape, kernel_initializer=self._kernel_init)(x)
@@ -140,6 +150,17 @@ class SUPERClassifier(abc.ABC):
             self._model.save_weights(self._model_path + self._save_name + "_best_weights.h5")
 
     def fit(self, train_generator, validation_generator, plot_test_acc=False, save_raw=False):
+        """ Function to train the model
+
+        Args:
+            train_generator: training set generatpr
+            validation_generator: validation set generator
+            plot_test_acc: plot the test or not
+            save_raw: save the raw files
+
+        Returns:
+            keras history dict
+        """
         history = self._model.fit(x=train_generator, validation_data=validation_generator, epochs=self._epochs,
                                   callbacks=self._callbacks)
 
@@ -164,12 +185,13 @@ class SUPERClassifier(abc.ABC):
 
         Args:
             data: dataGenerator or numpy array
-            labels:
-            return_metrics:
-            verbose:
-            monte_carlo
+            labels: labels if evaluation
+            return_metrics: return the metrics
+            verbose: print
+            monte_carlo: monte carlo?
 
         Returns:
+            Metrics if return metrics is true else y_prediction, y_sigmoid and actual predicted classes
 
         """
         if return_metrics:
