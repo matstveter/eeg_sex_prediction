@@ -1,4 +1,4 @@
-# Exploring the Potential Benefits of Deep Learning Ensembles and Uncertainty Quantification for Electroencephalography based Sex Prediction
+# Deep Learning Ensembles and Uncertainty Estimates for Efficient Electroencephalography Based Sex Prediction
 
 In this paper the aim was to predict sex directly from raw EEG time serie. This repository contains the single model used in the article, as well as different types of ensemble. In addition an approach for calculating the uncertainty, and epoch rejection, explained in the paper. 
 
